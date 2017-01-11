@@ -1,0 +1,361 @@
+//
+//  ClassListController.m
+//  skill-iOS
+//
+//  Created by 赵广亮 on 2016/10/27.
+//  Copyright © 2016年 zhaoguangliangzhaoguanliang. All rights reserved.
+//
+
+#import "ClassListController.h"
+#import "SwitchoverTwoTableView.h"
+#import "ClassListModel.h"
+#import "ClassListCell.h"
+#import "ClassDetailController.h"
+
+@interface ClassListController()<UITableViewDelegate,UITableViewDataSource>
+/**
+ *  请求页面数据长度
+ */
+@property (nonatomic,assign) NSInteger pageSize;
+
+/**
+ *  创建线上班级model array
+ */
+@property (nonatomic,strong) NSMutableArray *onlineModels;
+/**
+ *  创建线下班级model array
+ */
+@property (nonatomic,strong) NSMutableArray *offlineModels;
+/**
+ *  当前线上班级页码
+ */
+@property (nonatomic,assign) NSInteger currentOnlinePage;
+
+/**
+ *  创建线上班级tableView
+ */
+@property (nonatomic,strong) UITableView *onlineTableView;
+/**
+ *  创建线下班级tableView
+ */
+@property (nonatomic,strong) UITableView *offlineTaleView;
+/**
+ *  当前线下班级页码
+ */
+@property (nonatomic,assign) NSInteger currentOfflinePage;
+
+@end
+
+@implementation ClassListController
+
+-(void)viewWillAppear:(BOOL)animated{
+    [super viewWillAppear:animated];
+    
+    self.title = @"班级列表";
+    NSDictionary *dict = @{NSForegroundColorAttributeName:color_0f4068,
+                           NSFontAttributeName:[UIFont systemFontOfSize:17.0f],
+                           };
+    self.navigationController.navigationBar.titleTextAttributes = dict;
+    self.navigationController.navigationBar.translucent = NO;
+    [self.navigationController.navigationBar setShadowImage:nil];
+}
+
+-(void)viewDidLoad{
+    
+    [super viewDidLoad];
+    
+    [self initlizeData];
+    
+    [self setupUI];
+    
+    [self loadOnlineData];
+    [self loadOfflineData];
+}
+
+-(void)initlizeData{
+    
+    self.currentOnlinePage = 1;
+    self.currentOfflinePage = 0;
+    self.pageSize = 10;
+}
+
+-(void)setupUI{
+    
+    self.view.clipsToBounds = YES;
+    self.view.layer.masksToBounds = YES;
+    
+    //导航栏返回按钮
+    UIButton *button = [[UIButton alloc]init];
+    [button setImage:[UIImage imageNamed:@"Utils-Kit-back"] forState:UIControlStateNormal];
+    button.frame = CGRectMake(0,0, 30*HEIGHT_SCALE, 30*HEIGHT_SCALE) ;
+    [button setImageEdgeInsets:UIEdgeInsetsMake(0, 0, 0, 10)];
+    [button addTarget:self action:@selector(back) forControlEvents:UIControlEventTouchUpInside];
+    UIBarButtonItem *item1 = [[UIBarButtonItem alloc] initWithCustomView:button];
+    self.navigationItem.leftBarButtonItems = @[item1];
+    
+    //创建点击提示视图
+    SwitchoverTwoTableView *switchTipView = [[SwitchoverTwoTableView alloc] initWithFrame:self.view.frame FirstBtnTitle:@"线上班级" firstView:self.onlineTableView firstAction:nil sectionBtnTitle:@"线下班级" secondView:self.offlineTaleView secondAction:nil tabBaeHidden:0];
+    [self.view addSubview:switchTipView];
+}
+
+#pragma mark 加载网络数据
+
+//加载线上班级数据
+-(void)loadOnlineData{
+    
+    if (self.onlineModels.count != 0) {
+        [self.onlineModels removeAllObjects];
+        [self.onlineTableView reloadData];
+    }
+    
+    self.currentOnlinePage = 1;
+    
+    //拼接网络请求尾部
+    
+    NSMutableDictionary *paraments = [NSMutableDictionary dictionary];
+    [paraments setValue:@(self.jobModel.jobId) forKey:@"oid"];
+    [paraments setValue:@(self.currentOnlinePage) forKey:@"page"];
+    [paraments setValue:@(self.pageSize) forKey:@"size"];
+    [paraments setValue:@"online" forKey:@"type"];
+    
+    [self loadDataWithTableView:self.onlineTableView modesArray:self.onlineModels  withParaments:paraments];
+}
+
+//加载线下班级数据
+-(void)loadOfflineData{
+    
+    if (self.offlineModels.count != 0) {
+        [self.offlineModels removeAllObjects];
+        [self.offlineTaleView reloadData];
+    }
+    
+    self.currentOfflinePage = 0 ;
+    
+    NSMutableDictionary *paraments = [NSMutableDictionary dictionary];
+    [paraments setValue:@(self.jobModel.jobId) forKey:@"oid"];
+    [paraments setValue:@(self.currentOfflinePage) forKey:@"page"];
+    [paraments setValue:@(self.pageSize) forKey:@"size"];
+    [paraments setValue:@"offline" forKey:@"type"];
+    
+    [self loadDataWithTableView:self.offlineTaleView modesArray:self.offlineModels  withParaments:paraments];
+}
+
+//获取班级数据
+-(void)loadDataWithTableView:(UITableView*)tableView modesArray:(NSMutableArray*)mutArray withParaments:(NSDictionary*)paraments{
+    
+    //每次请求网络数据前检测网络状态
+    KCheckNetWorkAndRetuen(^(){
+        
+        [tableView.mj_header endRefreshing];
+        [tableView reloadData];
+    })
+    
+    WK(weakSelf);
+    [HttpService sendGetHttpRequestWithUrl:API_ClassList paraments:paraments successBlock:^(NSDictionary *jsonDic) {
+                
+        if([jsonDic isKindOfClass:[NSDictionary class]]){
+            
+            NSDictionary *dicOfRoot = (NSDictionary*)jsonDic;
+            NSArray *arrayOfClasses = [dicOfRoot objectForKey:@"classes"];
+            if (arrayOfClasses && arrayOfClasses.count != 0) {
+                
+                [arrayOfClasses enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+                    
+                    if (obj && [obj isKindOfClass:[NSDictionary class]]) {
+                        
+                        ClassListModel *model = [ClassListModel new];
+                        [model setValuesForKeysWithDictionary:obj];
+                        model.jobName = weakSelf.jobModel.name;
+                        
+                        [mutArray addObject:model];
+                    }
+                }];
+
+            }
+        }
+        
+        //解析数据完毕刷新页面
+        dispatch_async(dispatch_get_main_queue(), ^{
+            
+            [tableView.mj_header endRefreshing];
+            [tableView.mj_footer endRefreshing];
+            [tableView reloadData];
+        });
+    }];
+}
+
+//获取更多线上班级数据
+-(void)loadMoreOnlineData{
+
+    self.currentOnlinePage ++;
+
+    NSMutableDictionary *paraments = [NSMutableDictionary dictionary];
+    [paraments setValue:@(self.jobModel.jobId) forKey:@"oid"];
+    [paraments setValue:@(self.currentOnlinePage) forKey:@"page"];
+    [paraments setValue:@(self.pageSize) forKey:@"size"];
+    [paraments setValue:@"online" forKey:@"type"];
+    
+    [self loadDataWithTableView:self.onlineTableView modesArray:self.onlineModels  withParaments:paraments];
+}
+
+//获取更多线下班级数据
+-(void)loadMoreOfflineData{
+    
+    self.currentOfflinePage ++;
+    
+    NSMutableDictionary *paraments = [NSMutableDictionary dictionary];
+    [paraments setValue:@(self.jobModel.jobId) forKey:@"oid"];
+    [paraments setValue:@(self.currentOfflinePage) forKey:@"page"];
+    [paraments setValue:@(self.pageSize) forKey:@"size"];
+    [paraments setValue:@"offline" forKey:@"type"];
+    
+    [self loadDataWithTableView:self.offlineTaleView modesArray:self.offlineModels  withParaments:paraments];
+}
+
+#pragma mark tableView代理
+
+-(NSInteger)numberOfSectionsInTableView:(UITableView *)tableView{
+    return 1;
+}
+
+-(NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section{
+    
+    if (tableView.tag == 1001) {
+        return self.onlineModels.count;
+    }
+    
+    if(tableView.tag == 1002){
+        return self.offlineModels.count;
+    }
+    return 0;
+}
+
+-(CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath{
+    
+    return 85*HEIGHT_SCALE;
+}
+
+-(UITableViewCell*)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath{
+    
+    ClassListCell *cell = [tableView dequeueReusableCellWithIdentifier:@"cell"];
+    cell.selectionStyle = UITableViewCellSelectionStyleNone;
+
+    //如果是线上的tableView的话  读取线上数组数据
+    if (tableView.tag == 1001) {
+        
+        ClassListModel *model = self.onlineModels[indexPath.row];
+        cell.model = model;
+    }
+    
+    if (tableView.tag == 1002) {
+        
+        ClassListModel *model = self.offlineModels[indexPath.row];
+        cell.model = model;
+    }
+    
+    return cell;
+}
+
+-(void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath{
+        
+    ClassListModel *model;
+    if(tableView.tag == 1001){
+        model = self.onlineModels[indexPath.row];
+    }else{
+        model = self.offlineModels[indexPath.row];
+    }
+    
+    //推出班级详情页面
+    ClassDetailController *classDetailController = [[ClassDetailController alloc] init];
+    classDetailController.cid = model.classId;
+    classDetailController.jobName = model.jobName;
+    [self.navigationController pushViewController:classDetailController animated:YES];
+}
+
+#pragma mark 按钮触发方法
+//返回上个页面
+-(void)back{
+    
+    [self.navigationController popViewControllerAnimated:YES];
+}
+
+#pragma mark 懒加载
+
+-(NSMutableArray *)onlineModels{
+    if (!_onlineModels) {
+        _onlineModels = @[].mutableCopy;
+    }
+    return _onlineModels;
+}
+
+-(NSMutableArray *)offlineModels{
+    if (!_offlineModels) {
+        _offlineModels = @[].mutableCopy;
+    }
+    return _offlineModels;
+}
+
+-(UITableView *)onlineTableView{
+    
+    if (!_onlineTableView) {
+        
+        _onlineTableView = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
+        [_onlineTableView registerClass:[ClassListCell class] forCellReuseIdentifier:@"cell"];
+        _onlineTableView.tag = 1001;
+        _onlineTableView.delegate =self;
+        _onlineTableView.dataSource = self;
+        _onlineTableView.showsVerticalScrollIndicator = NO;
+        UIView *headView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, kWindowWidth, 6*HEIGHT_SCALE)];
+        headView.backgroundColor = color_e8efed;
+        _onlineTableView.tableHeaderView = headView;
+        
+        //添加下拉刷新  上拉加载功能
+        WK(weakSelf);
+        _onlineTableView.mj_header = [MJRefreshNormalHeader   headerWithRefreshingBlock:^{
+            [weakSelf loadOnlineData];
+        }];
+        _onlineTableView.mj_footer = [MJRefreshAutoFooter footerWithRefreshingBlock:^{
+            
+            [weakSelf loadMoreOnlineData];
+        }];
+        
+        //隐藏多余分割线
+        _onlineTableView.tableFooterView = [[UIView alloc] init];
+        
+    }
+    return _onlineTableView;
+}
+
+-(UITableView *)offlineTaleView{
+    
+    if (!_offlineTaleView) {
+        
+        _offlineTaleView = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
+        [_offlineTaleView registerClass:[ClassListCell class] forCellReuseIdentifier:@"cell"];
+        _offlineTaleView.tag = 1002;
+        _offlineTaleView.delegate =self;
+        _offlineTaleView.dataSource = self;
+        _offlineTaleView.showsVerticalScrollIndicator = NO;
+        
+        UIView *headView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, kWindowWidth, 6*HEIGHT_SCALE)];
+        headView.backgroundColor = color_e8efed;
+        _offlineTaleView.tableHeaderView = headView;
+        
+        //添加下拉刷新  上拉加载功能
+        WK(weakSelf);
+        _offlineTaleView.mj_header = [MJRefreshNormalHeader   headerWithRefreshingBlock:^{
+            [weakSelf loadOfflineData];
+        }];
+        _offlineTaleView.mj_footer = [MJRefreshAutoFooter footerWithRefreshingBlock:^{
+            
+            [weakSelf loadMoreOfflineData];
+        }];
+        
+        //隐藏多余分割线
+        _offlineTaleView.tableFooterView = [[UIView alloc] init];
+        
+    }
+    return _offlineTaleView;
+}
+
+@end

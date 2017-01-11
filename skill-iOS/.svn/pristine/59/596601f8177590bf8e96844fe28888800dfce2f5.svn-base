@@ -1,0 +1,200 @@
+
+//
+//  DailyCell.m
+//  skill-iOS
+//
+//  Created by 赵广亮 on 2016/10/28.
+//  Copyright © 2016年 zhaoguangliangzhaoguanliang. All rights reserved.
+//
+
+#import "DailyCell.h"
+
+@interface DailyCell()
+
+{
+    /**
+     *  用户头像
+     */
+    UIImageView *headImageV;
+    /**
+     *  标题Label
+     */
+    UILabel *titleL;
+    /**
+     * 发布时间Label
+     */
+    UILabel *timeL;
+    /**
+     *  回复数Label
+     */
+    UILabel *replayL;
+    /**
+     *  浏览量Label
+     */
+    UILabel *browseL;
+}
+
+@end
+
+@implementation DailyCell
+
+-(instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier{
+    
+    self = [super initWithStyle:style reuseIdentifier:reuseIdentifier];
+    if (self) {
+        [self setupUI];
+    }
+    return self;
+}
+
+-(void)setupUI{
+    
+    WK(weakSelf);
+    
+    /**
+     创建用户头像
+    */
+    headImageV = [[UIImageView alloc] init];
+    [self addSubview:headImageV];
+    [headImageV mas_makeConstraints:^(MASConstraintMaker *make) {
+        
+        make.centerY.mas_equalTo(weakSelf.mas_centerY);
+        make.left.mas_equalTo(weakSelf.mas_left).offset(8*WIDTH_SCALE);
+        make.size.mas_equalTo(CGSizeMake(80*HEIGHT_SCALE - 15, 80*HEIGHT_SCALE - 15));
+    }];
+    
+    //创建标题Label
+    titleL = [[UILabel alloc] init];
+    titleL.textColor = color_0f4068;
+    titleL.font = [UIFont systemFontOfSize:14*WIDTH_SCALE];
+    titleL.backgroundColor = [UIColor whiteColor];
+    titleL.adjustsFontSizeToFitWidth = YES;
+    titleL.numberOfLines = 0;
+    [self addSubview:titleL];
+    [titleL mas_makeConstraints:^(MASConstraintMaker *make) {
+        
+        make.left.mas_equalTo(headImageV.mas_right).offset(5*WIDTH_SCALE);
+        make.top.mas_equalTo(headImageV.mas_top);
+        make.height.mas_equalTo(30*HEIGHT_SCALE);
+        make.right.mas_equalTo(weakSelf.mas_right);
+    }];
+        
+    //创建发表时间
+    timeL = [[UILabel alloc] init];
+    timeL.textColor = color_7892a5;
+    timeL.font = [UIFont systemFontOfSize:11*WIDTH_SCALE];
+    timeL.backgroundColor = [UIColor whiteColor];
+    timeL.numberOfLines = 0;
+    [self addSubview:timeL];
+    [timeL mas_makeConstraints:^(MASConstraintMaker *make) {
+       
+        make.left.mas_equalTo(headImageV.mas_right).offset(5*WIDTH_SCALE);
+        make.bottom.mas_equalTo(weakSelf.mas_bottom);
+        make.size.mas_equalTo(CGSizeMake(140*WIDTH_SCALE, 20*HEIGHT_SCALE));
+    }];
+    
+    //创建浏览数Lbael
+    browseL = [[UILabel alloc] init];
+    browseL.textColor = color_7892a5;
+    browseL.font = [UIFont systemFontOfSize:11*WIDTH_SCALE];
+    browseL.backgroundColor = [UIColor whiteColor];
+    browseL.adjustsFontSizeToFitWidth = YES;
+    [self addSubview:browseL];
+    [browseL mas_makeConstraints:^(MASConstraintMaker *make) {
+       
+        make.centerY.mas_equalTo(timeL.mas_centerY);
+        make.right.mas_equalTo(self.mas_right).offset(-8*WIDTH_SCALE);
+        make.size.mas_equalTo(CGSizeMake(20*WIDTH_SCALE, 20*HEIGHT_SCALE));
+    }];
+
+    //创建浏览数tip
+    UIImageView *browselTip = [[UIImageView alloc] init];
+    browselTip.image = [UIImage imageNamed:@"class-paper-library"];
+    [self addSubview:browselTip];
+    [browselTip mas_makeConstraints:^(MASConstraintMaker *make) {
+       
+        make.centerY.mas_equalTo(timeL.mas_centerY);
+        make.right.mas_equalTo(browseL.mas_left).offset(-1*WIDTH_SCALE);
+        make.size.mas_equalTo(CGSizeMake(14*WIDTH_SCALE, 12*HEIGHT_SCALE));
+    }];
+    
+    //创建回复Label
+    replayL = [[UILabel alloc] init];
+    replayL.textColor = color_7892a5;
+    replayL.font = [UIFont systemFontOfSize:11*WIDTH_SCALE];
+    replayL.backgroundColor = [UIColor whiteColor];
+    replayL.adjustsFontSizeToFitWidth = YES;
+    replayL.numberOfLines = 0;
+    [self addSubview:replayL];
+    [replayL mas_makeConstraints:^(MASConstraintMaker *make) {
+       
+        make.right.mas_equalTo(browselTip.mas_left).offset(-3*WIDTH_SCALE);
+        make.size.mas_equalTo(CGSizeMake(10*WIDTH_SCALE, 20*HEIGHT_SCALE));
+        make.centerY.mas_equalTo(timeL.mas_centerY);
+    }];
+
+    //创建回复提示tip
+    UIImageView *tipOfReplay = [[UIImageView alloc] init];
+    tipOfReplay.image = [UIImage imageNamed:@"class-paper-message"];
+    [self addSubview:tipOfReplay];
+    [tipOfReplay mas_makeConstraints:^(MASConstraintMaker *make) {
+       
+        make.centerY.mas_equalTo(timeL.mas_centerY);
+        make.right.mas_equalTo(replayL.mas_left).offset(-1*WIDTH_SCALE);
+        make.size.mas_equalTo(CGSizeMake(14*WIDTH_SCALE, 12*HEIGHT_SCALE));
+    }];
+}
+
+-(void)setModel:(DailyModel *)model{
+    
+    NSArray *colors = @[color_0bcaa7,color_fdb92c];
+    UILabel *lastLabel = nil;
+    
+    //添加任务编号Label
+    for (int i = 0; i < model.taskNumbers.count; i ++) {
+        
+        //最多添加五个
+        if (i == 5) {
+            return;
+        }
+        
+        UILabel *label = [[UILabel alloc] init];
+        label.textColor = colors[i%2];
+        label.layer.borderWidth = 1;
+        label.layer.borderColor = ((UIColor*)colors[i%2]).CGColor;
+        label.layer.masksToBounds = YES;
+        label.layer.cornerRadius = 3;
+        label.font = [UIFont systemFontOfSize:10*WIDTH_SCALE];
+        label.backgroundColor = [UIColor whiteColor];
+        label.adjustsFontSizeToFitWidth = YES;
+        label.textAlignment = NSTextAlignmentCenter;
+        label.text = [NSString stringWithFormat:@"任务%lu",[model.taskNumbers[i] integerValue]];
+        [self addSubview:label];
+        
+        if (!lastLabel) {
+            
+            [label mas_makeConstraints:^(MASConstraintMaker *make) {
+                make.top.mas_equalTo(titleL.mas_bottom).offset(3*HEIGHT_SCALE);
+                make.left.mas_equalTo(headImageV.mas_right).offset(5*WIDTH_SCALE);
+                make.size.mas_equalTo(CGSizeMake(30*WIDTH_SCALE, 18*HEIGHT_SCALE));
+            }];
+        }else{
+            
+            [label mas_makeConstraints:^(MASConstraintMaker *make) {
+                make.top.mas_equalTo(titleL.mas_bottom).offset(3*HEIGHT_SCALE);
+                make.left.mas_equalTo(lastLabel.mas_right).offset(5*WIDTH_SCALE);
+                make.size.mas_equalTo(CGSizeMake(30*WIDTH_SCALE, 18*HEIGHT_SCALE));
+            }];
+        }
+        lastLabel = label;
+    }
+    
+    [headImageV sd_setImageWithURL:[NSURL URLWithString:model.thumb] placeholderImage:[UIImage imageNamed:@"class-list-placeholder"]];
+    titleL.text = [NSString stringWithFormat:@"修真院弟子【%lu】 | %@的日报",model.uid,[PTTDateKit dateFrom1970WithTimeInterval:model.createAt]];
+    timeL.text = [NSString stringWithFormat:@"发表于%@",[PTTDateKit dateTimeFrom1970WithTimeInterval:model.updateAt]];
+    replayL.text = [NSString stringWithFormat:@"%lu", model.reply];
+    browseL.text = [NSString stringWithFormat:@"%lu",model.readCount];
+}
+
+
+@end

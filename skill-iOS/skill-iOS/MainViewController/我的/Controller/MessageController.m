@@ -1,0 +1,366 @@
+
+
+//
+//  MessageController.m
+//  skill-iOS
+//
+//  Created by 赵广亮 on 2016/11/4.
+//  Copyright © 2016年 zhaoguangliangzhaoguanliang. All rights reserved.
+//
+
+#import "MessageController.h"
+#import "MessageCell.h"
+#import "MessageModel.h"
+
+@interface MessageController ()<UITableViewDelegate,UITableViewDataSource>
+
+/**
+  显示信息的tableView
+ */
+@property (nonatomic,strong) UITableView *messageTableView;
+/**
+   存放消息的model
+ */
+@property(nonatomic,strong) NSMutableArray *messageModels;
+/**
+ *  当前加载的page
+ */
+@property (nonatomic,assign)NSInteger currentPage;
+
+/**
+   全部已读按钮
+ */
+@property (nonatomic,strong) UIButton *readAllBtn;
+
+/**
+  没有消息的时候加载的提示图
+ */
+@property (nonatomic,strong) UIImageView *nonMessageImageV;
+@end
+
+@implementation MessageController
+
+-(void)viewWillAppear:(BOOL)animated{
+    
+    [super viewWillAppear:animated];
+    
+    NSDictionary *dict = @{NSForegroundColorAttributeName:color_0f4068,
+                           NSFontAttributeName:[UIFont systemFontOfSize:17.0f],
+                           };
+    self.navigationController.navigationBar.titleTextAttributes = dict;
+    self.navigationController.navigationBar.translucent = NO;
+    self.navigationController.navigationBar.hidden = NO;
+    [self.navigationController.navigationBar setShadowImage:nil];
+    
+    //启动友盟页面统计
+    [MobClick beginLogPageView:@"设置模块"];
+}
+
+- (void)viewDidLoad {
+    
+    [super viewDidLoad];
+    
+    [self initializeData];
+    
+    [self setUpUI];
+    
+    [self loadData];
+}
+
+-(void)viewWillDisappear:(BOOL)animated{
+    
+    [super viewWillDisappear:animated];
+    
+    if (self.readAllBtn && self.readAllBtn.superview) {
+        
+        [self.readAllBtn removeFromSuperview];
+    }
+    
+    //暂停加载提示图标的旋转
+    [PttLoadingTip stopLoading];
+    
+    //退出友盟页面统计
+    [MobClick endLogPageView:@"消息列表模块"];
+}
+
+-(void)initializeData{
+    
+    self.currentPage = 1;
+}
+
+-(void)setUpUI{
+    
+    self.view.backgroundColor = [UIColor whiteColor];
+    
+    self.title = @"我的通知";
+
+    //导航栏返回按钮
+    UIButton *leftBtn = [[UIButton alloc]init];
+    [leftBtn setImage:[UIImage imageNamed:@"Utils-Kit-back"] forState:UIControlStateNormal];
+    leftBtn.frame = CGRectMake(0,0, 30*HEIGHT_SCALE, 30*HEIGHT_SCALE) ;
+    [leftBtn setImageEdgeInsets:UIEdgeInsetsMake(0, 0, 0, 10)];
+    [leftBtn addTarget:self action:@selector(back) forControlEvents:UIControlEventTouchUpInside];
+    UIBarButtonItem *item1 = [[UIBarButtonItem alloc] initWithCustomView:leftBtn];
+    self.navigationItem.leftBarButtonItems = @[item1];
+    
+    //设置导航栏右边全部已读按钮
+    UIButton *rightBtn = [[UIButton alloc] init];
+    [rightBtn setImage:[UIImage imageNamed:@"message-tip"] forState:UIControlStateNormal];
+    rightBtn.frame = CGRectMake(0,0, 30*HEIGHT_SCALE, 30*HEIGHT_SCALE) ;
+    [rightBtn setImageEdgeInsets:UIEdgeInsetsMake(0, 0, 0, 10)];
+    [rightBtn addTarget:self action:@selector(clickAllRead) forControlEvents:UIControlEventTouchUpInside];
+    UIBarButtonItem *item2 = [[UIBarButtonItem alloc] initWithCustomView:rightBtn];
+    self.navigationItem.rightBarButtonItems = @[item2];
+    
+    //添加通知展示列表
+    [self.view addSubview:self.messageTableView];
+    
+    //添加全部已读按钮
+    self.readAllBtn.frame = CGRectMake(kWindowWidth - 100*HEIGHT_SCALE, 60, 100*WIDTH_SCALE, 50*HEIGHT_SCALE);
+    [[UIApplication sharedApplication].keyWindow addSubview:self.readAllBtn];
+}
+
+#pragma mark 网络请求
+-(void)loadData{
+    
+    WK(weakSelf);
+    
+    KCheckNetWorkAndRetuen(^(){
+        
+        [weakSelf.messageTableView.mj_header endRefreshing];
+        [weakSelf.messageTableView.mj_footer endRefreshing];
+    })
+    
+    [PttLoadingTip startLoading];
+    NSDictionary *paramentsDic = [NSDictionary dictionaryWithObjectsAndKeys:[NSString stringWithFormat:@"%lu",self.currentPage],@"page",@"10",@"size",@"1",@"status",[UserTool userModel].token,@"token", nil];
+    [HttpService sendGetHttpRequestWithUrl:API_Message paraments:paramentsDic successBlock:^(NSDictionary *jsonDic) {
+        
+        //创建记录值,记录该次加载开始前数组的元素个数是多少,当加载结束后再次判断数组内model数量和该值的比较,一致则判定无新数据了
+        NSInteger numberBeforeLoad = weakSelf.messageModels.count;
+
+        
+        if (jsonDic && [jsonDic isKindOfClass:[NSArray class]]&&jsonDic.count != 0 ) {
+            
+            NSArray *array = (NSArray*)jsonDic;
+            [array enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+               
+                MessageModel *model = [MessageModel new];
+                if (obj && [obj isKindOfClass:[NSDictionary class]]) {
+                    
+                    [model setValuesForKeysWithDictionary:obj];
+                }
+                [weakSelf.messageModels addObject:model];
+            }];
+        }
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+           
+            [PttLoadingTip stopLoading];
+            //如果没有数据的话,则添加无数据图片
+            if ([[paramentsDic objectForKey:@"page"] integerValue] == 1 && weakSelf.messageModels.count == 0 && !weakSelf.nonMessageImageV.superview) {
+                
+                [weakSelf.view addSubview:weakSelf.nonMessageImageV];
+            }
+            
+            //判断是否已经没有新数据了 给用户提示
+            if(numberBeforeLoad == weakSelf.messageModels.count && [[paramentsDic objectForKey:@"page"] integerValue] != 1){
+                
+                [ShowMessageTipUtil showTipLabelWithMessage:@"没有更多数据了" spacingWithTop:kWindowHeight/2 stayTime:2];
+            }
+            
+            [weakSelf.messageTableView.mj_header endRefreshing];
+            [weakSelf.messageTableView.mj_footer endRefreshing];
+            [weakSelf.messageTableView reloadData];
+        });
+    }];
+}
+
+#pragma mark tableView 代理
+
+-(NSInteger)numberOfSectionsInTableView:(UITableView *)tableView{
+    
+    return 1;
+}
+
+-(NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section{
+    
+    return self.messageModels.count;
+}
+
+-(UITableViewCell*)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath{
+    
+    MessageCell *cell = [tableView dequeueReusableCellWithIdentifier:@"messageCell"];
+    cell.selectionStyle = UITableViewCellSelectionStyleNone;
+
+    MessageModel *model = self.messageModels[indexPath.row];
+    cell.model = model;
+    
+    return cell;
+}
+
+-(void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath{
+    
+    MessageModel *model = self.messageModels[indexPath.row];
+    
+    NSDictionary *paramentDic = [NSDictionary dictionaryWithObjectsAndKeys:[UserTool userModel].token,@"token", nil];
+    
+    [HttpService sendPutHttpRequestWithUrl:[NSString stringWithFormat:@"%@%lu",API_MessageRead,model.messaegId] paraments:paramentDic successBlock:^(NSDictionary *jsonDic) {
+       
+        if(jsonDic && [jsonDic isKindOfClass:[NSDictionary class]]){
+            
+            if ([[jsonDic objectForKey:@"message"] isEqualToString:@"success"]) {
+                
+                dispatch_async(dispatch_get_main_queue(), ^{
+                   
+                    model.unread = 0;
+                    
+                    [tableView reloadRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationRight];
+                });
+            }else{
+                
+                [ShowMessageTipUtil showTipLabelWithMessage:[jsonDic objectForKey:@"message"] spacingWithTop:kWindowHeight/2 stayTime:2];
+                
+            }
+        }
+    }];
+}
+
+-(CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath{
+    
+    return 65;
+}
+
+#pragma mark 按钮触发方法
+
+//返回上个页面
+-(void)back{
+    
+    [self.navigationController popViewControllerAnimated:YES];
+}
+
+//显示全部已读按钮
+-(void)clickAllRead{
+    
+    self.readAllBtn.hidden = !self.readAllBtn.hidden;
+    
+}
+
+//将所有信息标记为已读 并且刷新页面
+-(void)readAllMessage{
+    
+    self.readAllBtn.hidden = YES;
+    WK(weakSelf);
+    //发送将该账号消息标记为已读请求 发送成功后调用本页面加载数据方法刷新数据
+    [HttpService sendPutHttpRequestWithUrl:API_MessageAllRead paraments:@{@"token":[UserTool userModel].token} successBlock:^(NSDictionary *jsonDic) {
+       
+        if(jsonDic && [jsonDic isKindOfClass:[NSDictionary class]]){
+            
+            if ([[jsonDic objectForKey:@"message"] isEqualToString:@"success"]) {
+                
+                [weakSelf.messageModels removeAllObjects];
+                weakSelf.currentPage = 1;
+                [weakSelf loadData];
+
+            }else{
+                
+                [ShowMessageTipUtil showTipLabelWithMessage:[jsonDic objectForKey:@"message"]];
+            }
+        }
+    }];
+    
+}
+
+#pragma mark 懒加载
+
+-(NSMutableArray *)messageModels{
+    
+    if (!_messageModels) {
+        _messageModels = @[].mutableCopy;
+    }
+    return _messageModels;
+}
+
+-(UIButton *)readAllBtn{
+    
+    if ((!_readAllBtn)) {
+        
+        _readAllBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+        [_readAllBtn setBackgroundImage:[UIImage imageNamed:@"right-btn-tip"] forState:UIControlStateNormal];
+        [_readAllBtn setTitle:@"一键已读" forState:UIControlStateNormal];
+        _readAllBtn.titleLabel.font = [UIFont systemFontOfSize:15*WIDTH_SCALE];
+        [_readAllBtn setTitleColor:color_0f4068 forState:UIControlStateNormal];
+        [_readAllBtn addTarget:self action:@selector(readAllMessage) forControlEvents:UIControlEventTouchUpInside];
+        _readAllBtn.hidden = YES;
+    }
+    
+    return _readAllBtn;
+}
+
+-(UITableView *)messageTableView{
+    
+        if (!_messageTableView) {
+            
+            _messageTableView = [[UITableView alloc] initWithFrame:CGRectMake(0, 0, kWindowWidth, self.view.frame.size.height - 20) style:UITableViewStylePlain];
+            [_messageTableView registerClass:[MessageCell class] forCellReuseIdentifier:@"messageCell"];
+            _messageTableView.delegate =self;
+            _messageTableView.dataSource = self;
+            _messageTableView.showsVerticalScrollIndicator = NO;
+            _messageTableView.backgroundColor = color_e8efed;
+            
+            //设置头视图
+            UIView *headView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, kWindowWidth, 10*HEIGHT_SCALE)];
+            headView.backgroundColor = color_e8efed;
+            _messageTableView.tableHeaderView = headView;
+            
+            //添加下拉刷新  上拉加载功能
+            WK(weakSelf);
+            _messageTableView.mj_header = [MJRefreshNormalHeader   headerWithRefreshingBlock:^{
+                
+                weakSelf.currentPage = 1;
+                [weakSelf.messageModels removeAllObjects];
+                [weakSelf.messageTableView reloadData];
+                [weakSelf loadData];
+            }];
+            _messageTableView.mj_footer = [MJRefreshAutoFooter footerWithRefreshingBlock:^{
+                
+                weakSelf.currentPage ++;
+                [weakSelf loadData];
+            }];
+            
+            //隐藏多余分割线
+            _messageTableView.tableFooterView = [[UIView alloc] init];
+        }
+        
+        return _messageTableView;
+}
+
+//创建文档模块没数据的占位图
+-(UIImageView *)nonMessageImageV{
+    
+    if (!_nonMessageImageV) {
+        
+        _nonMessageImageV = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"non-message"]];
+        _nonMessageImageV.contentMode = UIViewContentModeCenter;
+        _nonMessageImageV.frame = CGRectMake(0, 0, kWindowWidth, self.view.frame.size.height);
+    }
+    return _nonMessageImageV;
+}
+
+
+
+- (void)didReceiveMemoryWarning {
+    [super didReceiveMemoryWarning];
+    // Dispose of any resources that can be recreated.
+}
+
+/*
+#pragma mark - Navigation
+
+// In a storyboard-based application, you will often want to do a little preparation before navigation
+- (void)prepareForSegue:(UIStoryboardSegue *)segue sender:(id)sender {
+    // Get the new view controller using [segue destinationViewController].
+    // Pass the selected object to the new view controller.
+}
+*/
+
+@end

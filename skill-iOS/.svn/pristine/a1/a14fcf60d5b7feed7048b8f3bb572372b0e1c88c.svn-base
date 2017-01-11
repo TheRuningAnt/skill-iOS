@@ -1,0 +1,149 @@
+//
+//  WirteDailyController.m
+//  skill-iOS
+//
+//  Created by 赵广亮 on 2016/11/8.
+//  Copyright © 2016年 zhaoguangliangzhaoguanliang. All rights reserved.
+//
+
+#import "WebDailyDetailController.h"
+#import <JavaScriptCore/JavaScriptCore.h>
+#import <WebKit/WebKit.h>
+#import "TaskDetailController.h"
+
+
+
+/**
+    定义webView协议
+ */
+
+@protocol WebDailyProtocol <JSExport>
+
+-(void)getTaskId:(id)taskId;
+
+@end
+
+/**
+   创建web日报详情页面
+ */
+@interface WebDailyDetailController()<UIWebViewDelegate,WebDailyProtocol>
+
+@property (nonatomic,strong) UIWebView *webView;
+
+@end
+
+@implementation WebDailyDetailController
+
+-(void)viewWillAppear:(BOOL)animated{
+    
+    self.navigationController.navigationBar.translucent = YES;
+    
+    //设置导航栏背景透明
+    [self.navigationController.navigationBar setBackgroundImage:[UIImage new] forBarMetrics:UIBarMetricsDefault];
+    [self.navigationController.navigationBar setShadowImage:[UIImage new]];
+}
+
+- (void)viewDidLoad {
+    
+    [super viewDidLoad];
+    
+    [self setupUI];
+    
+    [self loadHtml];
+}
+
+-(void)setupUI{
+    
+    self.view.backgroundColor = [UIColor whiteColor];
+    
+    [self.view addSubview:self.webView];
+}
+
+//加载html页面
+-(void)loadHtml{
+    
+    NSString *baseUrl = [NSString stringWithFormat:@"http://dev.mobile.skill.ptteng.com/index2.html?"];
+
+    NSString* encodedToken = [[UserTool userModel].token stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+
+    NSString *subString = [NSString stringWithFormat:@"%@did=%lu&&token=%@",baseUrl,self.did,encodedToken];
+
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:subString]];
+    [self.webView loadRequest:request];
+    
+}
+
+
+#pragma mark webView代理
+-(void)webViewDidFinishLoad:(UIWebView *)webView{
+    
+    WK(weakSelf);
+    JSContext *context = [self.webView valueForKeyPath:@"documentView.webView.mainFrame.javaScriptContext"];
+    context[@"back"] = ^{
+
+        NSArray *a = [JSContext currentArguments];
+        for (NSString *s in a) {
+            NSLog(@"s = %@", s);
+        }
+        
+        [weakSelf dismissViewControllerAnimated:YES completion:nil];
+    };
+
+    //js调用oc传值
+    context[@"iOS"] = self;
+    
+}
+
+-(void)getTaskId:(id)taskId{
+    
+    if (!taskId || [taskId integerValue] == 0) {
+        
+        return;
+    }
+    
+    
+    
+    TaskDetailController *taskVC = [[TaskDetailController alloc] init];
+    taskVC.weatherPresent = YES;
+    taskVC.taskId = [taskId integerValue];
+    
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:taskVC];
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+      
+       [self presentViewController:nav animated:YES completion:nil];
+   });
+    
+}
+
+
+#pragma mark 懒加载
+-(UIWebView *)webView{
+    
+    if (!_webView) {
+        
+        _webView = [[UIWebView alloc] initWithFrame:CGRectMake(0, 20, kWindowWidth, self.view.frame.size.height)];
+        _webView.delegate = self;
+        _webView.scalesPageToFit = YES;
+
+    }
+    return _webView;
+}
+
+
+- (void)didReceiveMemoryWarning {
+    [super didReceiveMemoryWarning];
+    // Dispose of any resources that can be recreated.
+}
+
+/*
+ #pragma mark - Navigation
+ 
+ // In a storyboard-based application, you will often want to do a little preparation before navigation
+ - (void)prepareForSegue:(UIStoryboardSegue *)segue sender:(id)sender {
+ // Get the new view controller using [segue destinationViewController].
+ // Pass the selected object to the new view controller.
+ }
+ */
+
+@end

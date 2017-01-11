@@ -1,0 +1,25 @@
+{
+  "DVTSourceControlWorkspaceBlueprintPrimaryRemoteRepositoryKey" : "d3a69000-f430-4666-a87f-c79a1237e410++6196",
+  "DVTSourceControlWorkspaceBlueprintWorkingCopyRepositoryLocationsKey" : {
+    "d3a69000-f430-4666-a87f-c79a1237e410++6196" : {
+
+    }
+  },
+  "DVTSourceControlWorkspaceBlueprintWorkingCopyStatesKey" : {
+    "d3a69000-f430-4666-a87f-c79a1237e410++6196" : 0
+  },
+  "DVTSourceControlWorkspaceBlueprintIdentifierKey" : "2DB4057B-B40D-4590-83D8-CB54947D904A",
+  "DVTSourceControlWorkspaceBlueprintWorkingCopyPathsKey" : {
+    "d3a69000-f430-4666-a87f-c79a1237e410++6196" : "skill-iOS\/"
+  },
+  "DVTSourceControlWorkspaceBlueprintNameKey" : "skill-iOS",
+  "DVTSourceControlWorkspaceBlueprintVersion" : 204,
+  "DVTSourceControlWorkspaceBlueprintRelativePathToProjectKey" : "trunk\/skill-iOS.xcodeproj",
+  "DVTSourceControlWorkspaceBlueprintRemoteRepositoriesKey" : [
+    {
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositoryURLKey" : "svn:\/\/wx.jnshu.com\/ptteng",
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositorySystemKey" : "com.apple.dt.Xcode.sourcecontrol.Subversion",
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositoryIdentifierKey" : "d3a69000-f430-4666-a87f-c79a1237e410++6196"
+    }
+  ]
+}

@@ -1,0 +1,427 @@
+//
+//  PTTPickView.m
+//  skill-iOS
+//
+//  Created by 赵广亮 on 2016/11/6.
+//  Copyright © 2016年 zhaoguangliangzhaoguanliang. All rights reserved.
+//
+
+#import "PTTPickView.h"
+#define WK(weakSelf) __weak typeof (self) weakSelf = self;
+
+@interface PTTPickView()<UIPickerViewDataSource,UIPickerViewDelegate>
+
+{
+@private
+    
+    NSArray *_firstTitles;
+    NSArray *_secondTitles;
+    NSArray *_thirdTitles;
+    
+    void (^_firstAction)(UIPickerView* pickView,NSInteger compoent,NSInteger row);
+    void (^_senondAction)(UIPickerView* pickView,NSInteger compoent,NSInteger row);
+    void (^_thirdAction)(UIPickerView* pickView,NSInteger compoent,NSInteger row);
+    
+    UIFont *_fontClass;
+    CGFloat _fontSize;
+    UIColor *_fontColor;
+    
+    CGFloat _rowHeight;
+    NSInteger _numberOfComponent;
+    
+    BOOL _linkEnable;
+    
+    //时间选择器数据
+    __block NSInteger _timeStamp;
+    __block NSInteger _lastYear;
+    __block NSInteger _lastMonth;
+    __block NSInteger _lastDay;
+    
+    //年月日选择器数据
+    NSDictionary *_chinaPlaceDic;
+    __block NSMutableArray *_provinces;
+    __block NSMutableArray *_citys;
+    __block NSMutableArray *_countys;
+    
+    __block NSString * _lastProvince;
+    __block NSString * _lastCity;
+    __block NSString * _lastCounty;
+    
+}
+
+@property (nonatomic,strong) UIPickerView *pickView;
+
+@end
+
+@implementation PTTPickView
+
+/**
+ 根据给定的数据 创建一个PTTPickView
+ 
+ @param frame 整个视图的frame
+ @param firstTitles 第一列标题数组NSArray(NSString*)
+ @param firstAction 选中第一列标题触发事件
+ @param secondTitles 第二列标题数组NSArray(NSString*) 只有一列数据的话传nil
+ @param secondAction 选中第二列标题触发事件  只有一列数据的话传nil
+ @param titles 第三列标题数组NSArray(NSString*)  只有两列数据的话传nil
+ @param thirdAction 选中第三列标题触发事件 只有两列数据的话传nil
+ @param rowHeight 每行数据高度 传0使用默认高度 40
+ @param fontClass 如果有特殊情况需要使用自定义的字体  传入该值,否则传nil使用系统默认字体
+ @param fontSize 字体大小
+ @param fontColor 字体颜色
+ @param linkEnable 当滚动某一列时,后面的子列是否自动滚动至第一列
+ @return PTTPickView
+ */
+-(instancetype)initWithFrame:(CGRect)frame firstsTitles:(NSArray*)firstTitles firstAction:(void (^)(UIPickerView* pickView,NSInteger compoent,NSInteger row))firstAction secondeTitles:(NSArray*)secondTitles secondAction:(void (^)(UIPickerView* pickView,NSInteger compoent,NSInteger row))secondAction thirdTitles:(NSArray*)thirdTitles thirdAction:(void (^)(UIPickerView* pickView,NSInteger compoent,NSInteger row))thirdAction rowHight:(CGFloat)rowHeight fontClass:(id)fontClass fontSize:(CGFloat)fontSize fontColor:(UIColor*)fontColor linkageEnable:(BOOL)linkEnable{
+    
+    self = [super initWithFrame:frame];
+    if (self) {
+        
+        //获取标题数据
+        _firstTitles = firstTitles;
+        _secondTitles = secondTitles;
+        _thirdTitles = thirdTitles;
+        
+        //获取事件
+        _firstAction = firstAction;
+        _senondAction = secondAction;
+        _thirdAction = thirdAction;
+        
+        //获取字体属性
+        _fontClass = fontClass;
+        _fontSize = fontSize;
+        _fontColor = fontColor;
+        
+        _numberOfComponent = 0;
+        if (firstTitles) {
+            _numberOfComponent ++;
+        }
+        if (secondTitles) {
+            _numberOfComponent ++;
+        }
+        if (thirdTitles) {
+            _numberOfComponent ++;
+        }
+        
+        //是否需要联动
+        _linkEnable = linkEnable;
+    }
+    
+    self.pickView = [[UIPickerView alloc] initWithFrame:CGRectMake(0, 0, frame.size.width, frame.size.height)];
+    self.pickView.delegate = self;
+    self.pickView.dataSource = self;
+    self.pickView.backgroundColor = [UIColor whiteColor];
+    [self addSubview:self.pickView];
+    
+    return self;
+}
+
+/**
+ 根据给定的frame创建一个返回一个年月日选择器
+ 选中行列的时候返回一个精确到毫秒的时间戳 支持1970-2038 年
+ 
+ @param frame frame
+ @param rowHeight    行高
+ @param fontSize     字体大小
+ @param fontColor    字体颜色
+ @param action       选中时间行之后执行的Block,每次选择完时间之后都会回调该action
+ timePickView 当前操作的pickView
+ compoent     当前操作的列
+ row          当前操作的行
+ timeInterval 当前时间对应的时间戳   毫秒为单位
+ @return 时间选择器
+ */
+-(instancetype)createTimePickerWithFrame:(CGRect)frame rowHeight:(CGFloat)rowHeight fontSize:(CGFloat)fontSize fontColor:(UIColor*)fontColor selectAction:(void (^)(UIPickerView *timePickView,NSInteger compoent,NSInteger row,NSString *timeStr,NSInteger timeInterval))action{
+    
+    NSMutableArray *years = [NSMutableArray array];
+    int year = 1970;
+    for(int i = 0; i < 47; i ++){
+        
+        NSString *strOfYear = [NSString stringWithFormat:@"%d年",year ++];
+        [years addObject:strOfYear];
+    }
+    
+    NSMutableArray *months = [NSMutableArray array];
+    int month = 1;
+    for(int i = 0; i < 12; i ++){
+        
+        NSString *strOfMonth = [NSString stringWithFormat:@"%d月",month ++];
+        [months addObject:strOfMonth];
+    }
+    
+    NSMutableArray *days = [NSMutableArray array];
+    int day = 1;
+    for(int i = 0; i < 31; i ++){
+        
+        NSString *strOfDay = [NSString stringWithFormat:@"%d日",day ++];
+        [days addObject:strOfDay];
+    }
+    
+    WK(weakSelf);
+    id res = [self initWithFrame:frame firstsTitles:years
+                     firstAction:^(UIPickerView *pickView, NSInteger compoent, NSInteger row) {
+                         
+                         _lastYear = row;
+                         NSString *timeStr = [NSString stringWithFormat:@"%@%@%@",years[_lastYear],months[_lastMonth],days[_lastDay]];
+                         _timeStamp = [PTTDateKit timestampWithYearMonthDayStyle2String:timeStr];
+                         action(weakSelf.pickView,compoent,row,timeStr,_timeStamp);
+                     } secondeTitles:months
+                    secondAction:^(UIPickerView *pickView, NSInteger compoent, NSInteger row) {
+                        
+                        _lastMonth = row;
+                        NSString *timeStr = [NSString stringWithFormat:@"%@%@%@",years[_lastYear],months[_lastMonth],days[_lastDay]];
+                        _timeStamp = [PTTDateKit timestampWithYearMonthDayStyle2String:timeStr];
+                        action(weakSelf.pickView,compoent,row,timeStr,_timeStamp);
+                        
+                    } thirdTitles:days
+                     thirdAction:^(UIPickerView *pickView, NSInteger compoent, NSInteger row) {
+                         
+                         _lastDay = row;
+                         NSString *timeStr = [NSString stringWithFormat:@"%@%@%@",years[_lastYear],months[_lastMonth],days[_lastDay]];
+                         _timeStamp = [PTTDateKit timestampWithYearMonthDayStyle2String:timeStr];
+                         action(weakSelf.pickView,compoent,row,timeStr,_timeStamp);
+                     }
+                        rowHight:rowHeight
+                       fontClass:nil
+                        fontSize:fontSize
+                       fontColor:fontColor
+                   linkageEnable:YES];
+    
+    if ([res isKindOfClass:[PTTPickView class]]) {
+        return res;
+    }
+    
+    return nil;
+}
+
+/**
+ 根据给定的frame创建一个返回一个省市县选择器
+ 选中行列的时候返回一个精确到毫秒的时间戳 支持1970-2038 年
+ 
+ @param frame frame
+ @param rowHeight    行高
+ @param fontSize     字体大小
+ @param fontColor    字体颜色
+ @param action       选中时间行之后执行的Block
+ timePickView 当前操作的pickView
+ compoent     当前操作的列
+ row          当前操作的行
+ province     当前选择的省/直辖市
+ city         当前选择的市
+ county       当前选择的县
+ @return 时间选择器
+ */
+-(instancetype)createPlacePickerWithFrame:(CGRect)frame rowHeight:(CGFloat)rowHeight fontSize:(CGFloat)fontSize fontColor:(UIColor*)fontColor selectAction:(void (^)(UIPickerView *timePickView,NSInteger compoent,NSInteger row,NSString *province,NSString *city,NSString *county))action{
+
+    //初始化默认显示的数据
+    _lastProvince = @"";
+    _lastCity = @"";
+    _lastCounty = @"";
+    
+    /**
+     *  获取城市数据
+     */
+    NSString *path = [[NSBundle mainBundle] pathForResource:@"Address" ofType:@"plist"];
+    _chinaPlaceDic = [NSDictionary dictionaryWithContentsOfFile:path];
+    
+    if (_chinaPlaceDic) {
+        
+        //获取省份名字
+        _provinces = [NSMutableArray arrayWithArray:[_chinaPlaceDic allKeys]];
+        
+        //获取第一个省份的所有市
+        NSArray *cityArray = [_chinaPlaceDic objectForKey:_provinces[0]];
+        NSDictionary *cityDic = [cityArray firstObject];
+        _citys = [NSMutableArray arrayWithArray:[cityDic allKeys]];
+        
+        //获取第一个市下的所有县
+        _countys = [NSMutableArray arrayWithArray:[cityDic objectForKey:_citys[0]]];
+    }else{
+        
+        _provinces = [NSMutableArray arrayWithArray:@[@"--"]];
+        _citys = [NSMutableArray arrayWithArray:@[@"--"]];
+        _countys = [NSMutableArray arrayWithArray:@[@"--"]];
+    }
+    
+    WK(weakSelf);
+    id res = [self initWithFrame:frame
+                    firstsTitles:_provinces
+                     firstAction:^(UIPickerView *pickView, NSInteger compoent, NSInteger row) {
+                         
+                         //更新城市数据
+                         NSArray *cityArray = [_chinaPlaceDic objectForKey:_provinces[row]];
+                         NSDictionary *cityDic = [cityArray firstObject];
+                         NSArray *newCitys = [cityDic allKeys];
+                         [_citys removeAllObjects];
+                         [newCitys enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+                            
+                             [_citys addObject:obj];
+                         }];
+                         
+                         if (_citys.count == 0) {
+                             
+                            [_citys addObject:@" "];
+                         }
+                         [weakSelf.pickView reloadComponent:1];
+                         
+                         //更新县区数据
+                         [_countys removeAllObjects];
+                         NSArray *arrayOfConuty =[cityDic objectForKey:_citys[0]];
+                        [arrayOfConuty enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+                             
+                             [_countys addObject:obj];
+                         }];
+                         if (_countys.count == 0) {
+                             [_countys addObject:@" "];
+                         }
+                         [weakSelf.pickView reloadComponent:2];
+
+                         _lastProvince = _provinces[row];
+                         _lastCity = _citys[0];
+                         _lastCounty = _countys[0];
+
+                         action(weakSelf.pickView,compoent,row,_lastProvince,_lastCity,_lastCounty);
+                     }
+                   secondeTitles:_citys
+                    secondAction:^(UIPickerView *pickView, NSInteger compoent, NSInteger row) {
+                        
+                        //更新城市数据
+                        NSArray *cityArray = [_chinaPlaceDic objectForKey:_lastProvince];
+                        NSDictionary *cityDic = [cityArray firstObject];
+                        
+                        //更新县区数据
+                        [_countys removeAllObjects];
+                        NSArray *arrayOfConuty =[cityDic objectForKey:_citys[row]];
+                        [arrayOfConuty enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+                            
+                            [_countys addObject:obj];
+                        }];
+                        if (_countys.count == 0) {
+                            [_countys addObject:@" "];
+                        }
+                        [weakSelf.pickView reloadComponent:2];
+                        
+                        _lastCity = _citys[row];
+                        _lastCounty = _countys[0];
+                        
+                        action(weakSelf.pickView,compoent,row,_lastProvince,_lastCity,_lastCounty);
+                    }
+                     thirdTitles:_countys
+                     thirdAction:^(UIPickerView *pickView, NSInteger compoent, NSInteger row) {
+                         
+                         _lastCounty = _countys[row];
+                         action(weakSelf.pickView,compoent,row,_lastProvince,_lastCity,_lastCounty);
+                     }
+                        rowHight:rowHeight
+                       fontClass:nil
+                        fontSize:fontSize
+                       fontColor:fontColor
+                   linkageEnable:YES];
+    
+    if ([res isKindOfClass:[PTTPickView class]]) {
+        return res;
+    }
+    
+    return nil;
+}
+
+#pragma mark 私有接口
+-(NSInteger)numberOfComponentsInPickerView:(UIPickerView *)pickerView{
+    
+    return _numberOfComponent;
+}
+
+-(NSInteger)pickerView:(UIPickerView *)pickerView numberOfRowsInComponent:(NSInteger)component{
+    NSInteger numberOfRows = 0;
+    switch (component) {
+        case 0:
+            if (_firstTitles) {
+                numberOfRows = _firstTitles.count;
+            }
+            break;
+        case 1:
+            if (_secondTitles) {
+                numberOfRows = _secondTitles.count;
+            }
+            break;
+        case 2:
+            if (_thirdTitles) {
+                numberOfRows = _thirdTitles.count;
+            }
+            break;
+    }
+    
+    return numberOfRows;
+}
+
+-(UIView*)pickerView:(UIPickerView *)pickerView viewForRow:(NSInteger)row forComponent:(NSInteger)component reusingView:(UIView *)view{
+    
+    UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, self.frame.size.width/_numberOfComponent, _rowHeight)];
+    label.backgroundColor = [UIColor whiteColor];
+    label.adjustsFontSizeToFitWidth = YES;
+    
+    if (_fontClass) {
+        
+        label.font = [[[(UIFont*)_fontClass class] alloc] fontWithSize:_fontSize];
+    }else{
+        
+        label.font = [UIFont systemFontOfSize:_fontSize];
+    }
+    label.textColor = _fontColor;
+    label.textAlignment = NSTextAlignmentCenter;
+    
+    NSString *title = nil;
+    switch (component) {
+        case 0:
+            if (_firstTitles && _firstTitles.count > row) {
+                title = _firstTitles[row];
+            }
+            break;
+        case 1:
+            if (_secondTitles && _secondTitles.count > row) {
+                title = _secondTitles[row];
+            }
+            break;
+        case 2:
+            if (_thirdTitles && _thirdTitles.count > row) {
+                title = _thirdTitles[row];
+            }
+            break;
+        default: title = @"暂无数据";
+    }
+    
+    label.text = title;
+    
+    return label;
+}
+
+- (void)pickerView:(UIPickerView *)pickerView didSelectRow:(NSInteger)row inComponent:(NSInteger)component{
+    
+    WK(weakSelf);
+    
+    if(component == 0 && _firstAction){
+        
+        _firstAction(weakSelf.pickView,component,row);
+    }
+    if(component == 1 && _senondAction){
+        
+        _senondAction(weakSelf.pickView,component,row);
+    }
+    if(component == 2 && _thirdAction){
+        
+        _thirdAction(weakSelf.pickView,component,row);
+    }
+    
+    //如果需要联动的话  更新后面列数据
+    if(_linkEnable){
+        
+        while (component + 1 < _numberOfComponent) {
+            
+            component ++;
+            [pickerView selectRow:0 inComponent:component animated:YES];
+        }
+    }
+}
+
+
+@end

@@ -1,0 +1,380 @@
+
+//
+//  JobDailyController.m
+//  skill-iOS
+//
+//  Created by 赵广亮 on 2016/10/29.
+//  Copyright © 2016年 zhaoguangliangzhaoguanliang. All rights reserved.
+//
+
+#import "JobDailyController.h"
+#import "DailyModel.h"
+#import "DailyCell.h"
+#import "WirteDailyController.h"
+#import "WebDailyDetailController.h"
+
+@interface JobDailyController ()<UITableViewDelegate,UITableViewDataSource>
+
+/**
+ *  设置默认的加载页面数据长度
+ */
+@property (nonatomic,assign) NSInteger pageSize;
+/**
+ *  日报页面当前加载的页面下标
+ */
+@property (nonatomic,assign) NSInteger currentDailyPage;
+
+/**
+ *  班级日报tableView
+ */
+@property (nonatomic,strong) UITableView *jobDailyTableView;
+/**
+ *  存放班级日报model数组
+ */
+@property (nonatomic,strong) NSMutableArray *jobDailyModels;
+
+/**
+   没有日报时添加该图片
+ */
+@property (nonatomic,strong) UIImageView *nonDailyImageV;
+
+@end
+
+@implementation JobDailyController
+
+-(void)viewWillAppear:(BOOL)animated{
+    [super viewWillAppear:animated];
+    
+    NSDictionary *dict = @{NSForegroundColorAttributeName:color_0f4068,
+                           NSFontAttributeName:[UIFont systemFontOfSize:17.0f],
+                           };
+    self.navigationController.navigationBar.titleTextAttributes = dict;
+    self.navigationController.navigationBar.translucent = NO;
+    self.navigationController.navigationBar.hidden = NO;
+    [self.navigationController.navigationBar setShadowImage:nil];
+    
+    //每次将要出现该页面的时候刷新数据
+    [self loadJobDailyData];
+}
+
+- (void)viewDidLoad {
+    
+    [super viewDidLoad];
+    
+    //初始化数据
+    [self initializeData];
+    
+    [self setupUI];
+    
+}
+
+-(void)initializeData{
+    
+    self.currentDailyPage = 1;
+    self.pageSize = 10;
+}
+
+//布局页面
+-(void)setupUI{
+    
+    self.view.backgroundColor = [UIColor whiteColor];
+    
+    //如果是从"我的"模块推出来的 则将标题设置为"我的日报",并显示右边的写日报按钮
+    if (self.oid > 0) {
+        
+        self.title = @"职业日报";
+    }
+    
+    //如果是访客模式  则提示回去自己主页写日报
+    if (self.uid > 0 && !self.visitor) {
+        
+        //设置导航栏右边写日报按钮
+        UIButton *writeDailyBut = [[UIButton alloc]init];
+        [writeDailyBut setImage:[UIImage imageNamed:@"write-daily"] forState:UIControlStateNormal];
+        writeDailyBut.frame = CGRectMake(0,0, 30*HEIGHT_SCALE, 30*HEIGHT_SCALE) ;
+        [writeDailyBut setImageEdgeInsets:UIEdgeInsetsMake(0, 0, 0, 10)];
+        [writeDailyBut addTarget:self action:@selector(writeDaily) forControlEvents:UIControlEventTouchUpInside];
+        UIBarButtonItem *item1 = [[UIBarButtonItem alloc] initWithCustomView:writeDailyBut];
+        self.navigationItem.rightBarButtonItems = @[item1];
+        
+        self.title = @"我的日报";
+    }
+    if(self.cid > 0){
+        
+        self.title = @"班级日报";
+    }
+    if (self.visitor) {
+        
+        self.title = @"Ta的日报";
+    }
+    
+    //导航栏返回按钮
+    UIButton *button = [[UIButton alloc]init];
+    [button setImage:[UIImage imageNamed:@"Utils-Kit-back"] forState:UIControlStateNormal];
+    button.frame = CGRectMake(0,0, 30*HEIGHT_SCALE, 30*HEIGHT_SCALE) ;
+    [button setImageEdgeInsets:UIEdgeInsetsMake(0, 0, 0, 10)];
+    [button addTarget:self action:@selector(back) forControlEvents:UIControlEventTouchUpInside];
+    UIBarButtonItem *item1 = [[UIBarButtonItem alloc] initWithCustomView:button];
+    self.navigationItem.leftBarButtonItems = @[item1];
+    
+    //添加职业日报列表
+    [self.view addSubview:self.jobDailyTableView];
+}
+
+#pragma mark 网络请求
+
+//请求日报数据
+-(void)loadJobDailyData{
+    
+    [self.jobDailyModels removeAllObjects];
+    [self.jobDailyTableView reloadData];
+    
+    WK(weakSelf);
+    KCheckNetWorkAndRetuen(^(){
+        
+        [weakSelf.jobDailyTableView.mj_header endRefreshing];
+    })
+    
+    self.currentDailyPage = 1;
+    
+    //拼接字符串参数
+    NSMutableDictionary *paramensDic = [NSMutableDictionary dictionary];
+    if (self.oid > 0) {
+        
+        [paramensDic setValue:[NSString stringWithFormat:@"%d",self.oid] forKey:@"oid"];
+    }
+    if (self.uid > 0) {
+        
+        [paramensDic setValue:[NSString stringWithFormat:@"%d",self.uid] forKey:@"uid"];
+    }
+    if (self.cid > 0) {
+        
+        [paramensDic setValue:[NSString stringWithFormat:@"%d",self.cid] forKey:@"cid"];
+    }
+    
+    [paramensDic setValue:[NSString stringWithFormat:@"%lu",self.currentDailyPage] forKey:@"page"];
+    [paramensDic setValue:[NSString stringWithFormat:@"%lu",self.pageSize] forKey:@"size"];
+    
+    [self loadDailyDataWith:paramensDic];
+}
+
+//加载更多日报数据
+-(void)loadMoreJobDailyData{
+    
+    WK(weakSelf);
+    KCheckNetWorkAndRetuen(^(){
+        
+        [weakSelf.jobDailyTableView.mj_footer endRefreshing];
+    })
+    
+    self.currentDailyPage ++;
+    //拼接字符串参数
+    NSMutableDictionary *paramensDic = [NSMutableDictionary dictionary];
+    if (self.oid > 0) {
+        
+        [paramensDic setValue:[NSString stringWithFormat:@"%d",self.oid] forKey:@"oid"];
+    }
+    if (self.uid > 0) {
+        
+        [paramensDic setValue:[NSString stringWithFormat:@"%d",self.uid] forKey:@"uid"];
+    }
+    [paramensDic setValue:[NSString stringWithFormat:@"%lu",self.currentDailyPage] forKey:@"page"];
+    [paramensDic setValue:[NSString stringWithFormat:@"%lu",self.pageSize] forKey:@"size"];
+    
+    [self loadDailyDataWith:paramensDic];
+}
+
+
+-(void)loadDailyDataWith:(NSDictionary*)paramensDic{
+    
+    WK(weakSelf);
+    [HttpService sendGetHttpRequestWithUrl:API_ClassDaily paraments:paramensDic successBlock:^(NSDictionary *jsonDic) {
+
+        //创建记录值,记录该次加载开始前数组的元素个数是多少,当加载结束后再次判断数组内model数量和该值的比较,一致则判定无新数据了
+        NSInteger numberBeforeLoad = weakSelf.jobDailyModels.count;
+        
+        if (jsonDic && [jsonDic isKindOfClass:[NSDictionary class]]) {
+            
+            //解析职业日报数据
+            NSArray *rootArray = [jsonDic valueForKey:@"dailies"];
+            
+            if (rootArray && rootArray.count != 0) {
+                
+                [rootArray enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+                    
+                    if ( obj && [obj isKindOfClass:[NSDictionary class]]) {
+                        
+                        DailyModel *model = [DailyModel new];
+                        
+                        //设置日报属性数据 这里可以获取到用户的uid
+                        [model setValuesForKeysWithDictionary:obj];
+                        
+                        //获取当前用户的任务列表  将json字符串编码解码获取数据
+                        //NSString *strOfDics = [obj objectForKey:@"tids"]
+                        NSString *tidsStr =  [obj objectForKey:@"tids"];
+                        NSData *data = [tidsStr dataUsingEncoding:NSUTF8StringEncoding];
+                        NSArray* tids = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingAllowFragments error:nil];
+                        
+                        //获取用户头像 使用uid去匹配
+                        NSDictionary *dicOfUsers = [jsonDic objectForKey:@"users"];
+                        if (dicOfUsers && dicOfUsers.count != 0) {
+                            
+                            NSDictionary *currentUserInfo = [dicOfUsers objectForKey:[NSString stringWithFormat:@"%lu",model.uid]];
+                            if (currentUserInfo) {
+                                
+                                model.thumb = [currentUserInfo objectForKey:@"thumb"];
+                            }
+                        }
+                        
+                        //获取用户任务编号
+                        NSDictionary *taskDic = [jsonDic objectForKey:@"tasks"];
+                        if (taskDic && taskDic.count != 0) {
+                            
+                            model.taskNumbers = [NSMutableArray array];
+                            //遍历数组获取用户的任务编号
+                            if (tids && [tids isKindOfClass:[NSArray class]]) {
+                                [tids enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+                                    
+                                    NSDictionary *subTasksDic = [taskDic objectForKey: [NSString stringWithFormat:@"%lu",[obj integerValue]]];
+                                    if (subTasksDic) {
+                                        
+                                        NSInteger num = [[subTasksDic objectForKey:@"num"] integerValue];
+                                        [model.taskNumbers addObject:@(num)];
+                                    }
+                                }];
+                            }
+                        }
+                        
+                        [weakSelf.jobDailyModels addObject:model];
+                    }
+                }];
+            }
+        }
+        
+#pragma mark testCode
+        dispatch_async(dispatch_get_main_queue(), ^{
+            
+            [weakSelf.jobDailyTableView.mj_header endRefreshing];
+            [weakSelf.jobDailyTableView.mj_footer endRefreshing];
+            
+            //如果没有新数据的话,则给用户提示
+            if (numberBeforeLoad == weakSelf.jobDailyModels.count) {
+                
+                [ShowMessageTipUtil showTipLabelWithMessage:@"没有更多数据了" spacingWithTop:kWindowHeight/2 stayTime:2];
+            }
+            
+            //如果有数据的话,则移除没有日报的图片,该代码只执行一次
+            if (weakSelf.jobDailyModels.count == 0 && !weakSelf.nonDailyImageV.superview && [[paramensDic objectForKey:@"page"] integerValue] == 1) {
+                    
+                [weakSelf.view addSubview:weakSelf.nonDailyImageV];
+            }
+            
+            [weakSelf.jobDailyTableView reloadData];
+        });
+    }];
+}
+
+#pragma mark 按钮触发事件
+//返回上个页面
+-(void)back{
+    
+    [self.navigationController popViewControllerAnimated:YES];
+}
+
+//写日报
+-(void)writeDaily{
+    
+    WirteDailyController *writeDaily = [[WirteDailyController alloc] init];
+    [self presentViewController:writeDaily animated:YES completion:nil];
+}
+
+#pragma mark tableView代理
+
+-(NSInteger)numberOfSectionsInTableView:(UITableView *)tableView{
+    
+    return 1;
+}
+
+-(NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section{
+    
+    return self.jobDailyModels.count;
+}
+
+-(CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath{
+    
+    return 80*HEIGHT_SCALE;
+}
+
+-(UITableViewCell*)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath{
+    
+    DailyCell *cell = [tableView dequeueReusableCellWithIdentifier:@"dailyCell"];
+    cell.selectionStyle = UITableViewCellSelectionStyleNone;
+
+    DailyModel *model = self.jobDailyModels[indexPath.row];
+    if (model) {
+        cell.model = model;
+    }
+    
+    return cell;
+}
+
+-(void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath{
+        
+    //点击推出日报详情页面
+    WebDailyDetailController *webDailyDetailVC = [[WebDailyDetailController alloc] init];
+    DailyModel *dailyModel = self.jobDailyModels[indexPath.row];
+    webDailyDetailVC.did = dailyModel.dailyId;
+    [self presentViewController:webDailyDetailVC animated:YES completion:nil];
+}
+
+#pragma mark 懒加载
+
+-(UITableView *)jobDailyTableView{
+    
+    if (!_jobDailyTableView) {
+        
+        _jobDailyTableView = [[UITableView alloc] initWithFrame:CGRectMake(0, 0, kWindowWidth, self.view.frame.size.height - 20) style:UITableViewStylePlain];
+        [_jobDailyTableView registerClass:[DailyCell class] forCellReuseIdentifier:@"dailyCell"];
+        _jobDailyTableView.tag = 1001;
+        _jobDailyTableView.delegate =self;
+        _jobDailyTableView.dataSource = self;
+        _jobDailyTableView.showsVerticalScrollIndicator = NO;
+        
+        //添加下拉刷新  上拉加载功能
+        WK(weakSelf);
+        _jobDailyTableView.mj_header = [MJRefreshNormalHeader   headerWithRefreshingBlock:^{
+            [weakSelf loadJobDailyData];
+        }];
+        _jobDailyTableView.mj_footer = [MJRefreshAutoFooter footerWithRefreshingBlock:^{
+            
+            [weakSelf loadMoreJobDailyData];
+        }];
+        
+        //隐藏多余分割线
+        _jobDailyTableView.tableFooterView = [[UIView alloc] init];
+    }
+    
+    return _jobDailyTableView;
+}
+
+//创建没有日报时显示的图片
+-(UIImageView *)nonDailyImageV{
+    
+    if (!_nonDailyImageV) {
+        
+        _nonDailyImageV = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"no-daily"]];
+        _nonDailyImageV.contentMode = UIViewContentModeCenter;
+        _nonDailyImageV.frame = CGRectMake(0, 0, kWindowWidth, self.view.frame.size.height);
+    }
+    return _nonDailyImageV;
+}
+
+#pragma mark 懒加载
+-(NSMutableArray *)jobDailyModels{
+    if (!_jobDailyModels) {
+        _jobDailyModels = @[].mutableCopy;
+    }
+    return _jobDailyModels;
+}
+
+@end

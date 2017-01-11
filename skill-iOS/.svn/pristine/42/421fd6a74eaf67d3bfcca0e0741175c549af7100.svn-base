@@ -1,0 +1,75 @@
+//
+//  PTTPickView.h
+//  skill-iOS
+//
+//  Created by 赵广亮 on 2016/11/6.
+//  Copyright © 2016年 zhaoguangliangzhaoguanliang. All rights reserved.
+//
+
+#import <UIKit/UIKit.h>
+
+
+
+/**
+   该框架需要导入 Address.plist 
+ */
+@interface PTTPickView : UIView
+
+
+/**
+ 根据给定的数据 创建一个PTTPickView
+
+ @param frame        整个视图的frame
+ @param firstTitles  第一列标题数组NSArray(NSString*)
+ @param firstAction  选中第一列标题触发事件
+ @param secondTitles 第二列标题数组NSArray(NSString*) 只有一列数据的话传nil
+ @param secondAction 选中第二列标题触发事件  只有一列数据的话传nil
+ @param titles       第三列标题数组NSArray(NSString*)  只有两列数据的话传nil
+ @param thirdAction  选中第三列标题触发事件 只有两列数据的话传nil
+ @param rowHeight    每行数据高度 传0使用默认高度 40
+ @param fontClass    如果有特殊情况需要使用自定义的字体  传入该值,否则传nil使用系统默认字体
+ @param fontSize     字体大小
+ @param fontColor    字体颜色
+ @param linkEnable   当滚动某一列时,后面的子列是否自动滚动至第一列
+ @return PTTPickView
+ */
+-(instancetype)initWithFrame:(CGRect)frame firstsTitles:(NSArray*)firstTitles firstAction:(void (^)(UIPickerView* pickView,NSInteger compoent,NSInteger row))firstAction secondeTitles:(NSArray*)secondTitles secondAction:(void (^)(UIPickerView* pickView,NSInteger compoent,NSInteger row))secondAction thirdTitles:(NSArray*)thirdTitles thirdAction:(void (^)(UIPickerView* pickView,NSInteger compoent,NSInteger row))thirdAction rowHight:(CGFloat)rowHeight fontClass:(id)fontClass fontSize:(CGFloat)fontSize fontColor:(UIColor*)fontColor linkageEnable:(BOOL)linkEnable;
+
+/**
+ 根据给定的frame创建一个返回一个年月日选择器 
+ 选中行列的时候返回一个精确到毫秒的时间戳 支持1970-2038 年
+
+ @param frame frame
+ @param rowHeight    行高
+ @param fontSize     字体大小
+ @param fontColor    字体颜色
+ @param action       选中时间行之后执行的Block
+        timePickView 当前操作的pickView
+        compoent     当前操作的列
+        row          当前操作的行
+        timeStr      当前对应的时间数据 yyyy年mm月dd日
+        timeInterval 当前时间对应的时间戳   毫秒为单位
+ @return 时间选择器
+ */
+-(instancetype)createTimePickerWithFrame:(CGRect)frame rowHeight:(CGFloat)rowHeight fontSize:(CGFloat)fontSize fontColor:(UIColor*)fontColor selectAction:(void (^)(UIPickerView *timePickView,NSInteger compoent,NSInteger row,NSString *timeStr,NSInteger timeInterval))action;
+
+/**
+ 根据给定的frame创建一个返回一个省市县选择器
+ 选中行列的时候返回一个精确到毫秒的时间戳 支持1970-2038 年
+ 
+ @param frame frame
+ @param rowHeight    行高
+ @param fontSize     字体大小
+ @param fontColor    字体颜色
+ @param action       选中时间行之后执行的Block
+ timePickView 当前操作的pickView
+ compoent     当前操作的列
+ row          当前操作的行
+ province     当前选择的省/直辖市
+ city         当前选择的市
+ county       当前选择的县
+ @return 时间选择器
+ */
+-(instancetype)createPlacePickerWithFrame:(CGRect)frame rowHeight:(CGFloat)rowHeight fontSize:(CGFloat)fontSize fontColor:(UIColor*)fontColor selectAction:(void (^)(UIPickerView *timePickView,NSInteger compoent,NSInteger row,NSString *province,NSString *city,NSString *county))action;
+
+@end

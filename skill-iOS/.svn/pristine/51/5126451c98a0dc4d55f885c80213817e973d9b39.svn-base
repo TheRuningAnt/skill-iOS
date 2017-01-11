@@ -1,0 +1,19 @@
+//
+//  BasicViewController.h
+//  MakeLearn-iOS
+//
+//  Created by 王晨飞 on 16/7/4.
+//  Copyright © 2016年 董彩丽. All rights reserved.
+//
+
+#import "NavigationViewController.h"
+
+@interface BasicViewController : UIViewController
+/**
+ *  左侧标题
+ */
+@property (nonatomic, copy) NSString *titleString;
+
+@property (nonatomic, strong) NavigationViewController *navController;
+-(void)noNetWorkShowView;
+@end

@@ -1,0 +1,21 @@
+//
+//  PttLoadingTip.h
+//  skill-iOS
+//
+//  Created by 赵广亮 on 2016/10/28.
+//  Copyright © 2016年 zhaoguangliangzhaoguanliang. All rights reserved.
+//
+
+#import <UIKit/UIKit.h>
+
+@interface PttLoadingTip : NSObject
+
++(void)startLoading;
++(void)stopLoading;
+/**
+ *  设置圆圈的中心
+ *
+ */
++(void)setCenter:(CGPoint)center;
+
+@end

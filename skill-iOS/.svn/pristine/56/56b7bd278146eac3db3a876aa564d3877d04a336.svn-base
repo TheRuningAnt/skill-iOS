@@ -1,0 +1,387 @@
+//
+//  RegisterHttp.m
+//  MakeLearn-iOS
+//
+//  Created by 花见花开你帅妹 on 16/7/15.
+//  Copyright © 2016年 董彩丽. All rights reserved.
+//
+
+#import "RegisterHttp.h"
+
+@implementation RegisterHttp
+
+//验证码
++(void)registerSendPhoneNumber:(NSString *)phone verify:(NSString *)verify successJson:(void (^)(id json))successBlock
+{
+    NSMutableDictionary *dic=[[NSMutableDictionary alloc] init];
+    [dic setObject:phone forKey:@"mobile"];
+    [dic setObject:verify forKey:@"type"];
+    
+    NSLog(@"%@",API_RegisterSend);
+    AFHTTPSessionManager *manger = [AFHTTPSessionManager manager];
+    
+    manger.responseSerializer = [AFHTTPResponseSerializer serializer];
+    
+    [manger POST:API_RegisterSend parameters:dic success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
+
+        NSDictionary * dict = [NSJSONSerialization JSONObjectWithData:responseObject options:NSJSONReadingAllowFragments error:nil];
+        NSLog(@"短信验证码dict=%@",dict);
+        successBlock(dict);
+    } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+        
+        successBlock(nil);
+    }];
+}
+
+//注册
++(void)registerWithPhoneNumber:(NSString *)phone verify:(NSString *)verify Password:(NSString *)password successJson:(void (^)(id json))successBlock
+{
+    NSMutableDictionary *dic=[[NSMutableDictionary alloc] init];
+    [dic setObject:phone forKey:@"mobile"];
+    [dic setObject:verify forKey:@"verify"];
+    [dic setObject:password forKey:@"password"];
+    
+    AFHTTPSessionManager *manger = [AFHTTPSessionManager manager];
+    
+    manger.responseSerializer = [AFHTTPResponseSerializer serializer];
+    
+    [manger POST:API_UserRegister parameters:dic success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
+        
+        NSDictionary * dict = [NSJSONSerialization JSONObjectWithData:responseObject options:NSJSONReadingAllowFragments error:nil];
+        if ([[dict objectForKey:@"code"] intValue] != 0) {
+             [ShowMessageTipUtil showTipLabelWithMessage:[dict objectForKey:@"message"]];
+        }else{
+            successBlock(dict);
+        }
+        
+    } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+
+        [ShowMessageTipUtil showTipLabelWithMessage:@"注册异常"];
+    }];
+
+}
+
+//登录
++(void)loginWithPhoneNumber:(NSString *)phone password:(NSString *)password successJson:(void (^)(id json))successBlock
+{
+    NSMutableDictionary *dic=[[NSMutableDictionary alloc] init];
+    [dic setObject:phone forKey:@"mobile"];
+    [dic setObject:password forKey:@"pwd"];
+    
+    AFHTTPSessionManager *manger = [AFHTTPSessionManager manager];
+    
+    manger.responseSerializer = [AFHTTPResponseSerializer serializer];
+    
+    [manger POST:API_UserLogin parameters:dic success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
+        
+        NSDictionary * dict = [NSJSONSerialization JSONObjectWithData:responseObject options:NSJSONReadingAllowFragments error:nil];
+        successBlock(dict);
+
+    } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+        [ShowMessageTipUtil showTipLabelWithMessage:@"登录异常"];
+    }];
+}
+
+//修改密码
++(void)forgetWithPhoneNumber:(NSString *)phone password:(NSString *)password  verify:(NSString *)verify successJson:(void (^)(id json))successBlock
+{
+    NSMutableDictionary *dic=[[NSMutableDictionary alloc] init];
+    [dic setObject:phone forKey:@"mobile"];
+    [dic setObject:verify forKey:@"verify"];
+    [dic setObject:password forKey:@"newpwd"];
+    
+    NSLog(@"%@",dic);
+    
+    AFHTTPSessionManager *manger = [AFHTTPSessionManager manager];
+    
+    manger.responseSerializer = [AFHTTPResponseSerializer serializer];
+    
+    [manger PUT:API_UserChangePwd parameters:dic success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
+        
+        NSDictionary * dict = [NSJSONSerialization JSONObjectWithData:responseObject options:NSJSONReadingAllowFragments error:nil];
+
+            successBlock(dict);
+    } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+        [ShowMessageTipUtil showTipLabelWithMessage:@"获取验证码异常"];
+    }];
+
+}
+
++(void)loginHeadImg:(NSString *)headImgStr andUrl:(NSString *)url successJson:(void (^)(id json))successBlock
+{
+//    AFHTTPSessionManager *manager = [AFHTTPSessionManager manager];
+//    
+//    manager.responseSerializer.acceptableContentTypes = [NSSet setWithObject:@"text/html"];
+//    
+//    manager.responseSerializer = [AFHTTPResponseSerializer serializer];
+//    
+//    NSString* requesturl = [urlStr stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+//    
+//    NSLog(@"%@",requesturl);
+//    
+//    [manager POST:requesturl parameters:nil constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
+//        
+//        [formData appendPartWithFileURL:[NSURL fileURLWithPath:headImgStr] name:@"file" error:nil];
+//        
+//    } success:^(NSURLSessionDataTask * _Nonnull task, id  _Nonnull responseObject) {
+//        
+//        NSDictionary *dict = [NSJSONSerialization JSONObjectWithData:responseObject options:NSJSONReadingAllowFragments error:nil];
+//
+//        if ([[dict objectForKey:@"code"] intValue] != 0) {
+//            successBlock(nil);
+//            [ShowMessageTipUtil showTipLabelWithMessage:[dict objectForKey:@"message"]];
+//            
+//        }
+//        else
+//        {
+//
+//        NSLog(@"request  - - --%@",dict);
+//        
+//        successBlock(dict);
+//        
+//        }
+//        
+//    } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+//        NSLog(@"%@",error);
+//        
+//        if (error.code == -1004) {
+//            successBlock(nil);
+//            //[MBProgressHUD showErrorOnWindow:@"当前服务忙,请稍后再试!"];
+//            [ShowMessageTipUtil showTipLabelWithMessage:@"当前服务忙,请稍后再试!"];
+//        
+//        }
+//    }];
+
+}
+
+//修改用户信息
++(void)ChangeWithUserNick:(NSString *)nick grade:(NSString *)grade mail:(NSString *)mail img:(NSString *)img successJson:(void (^)(id json))successBlock
+{
+    
+//    NSMutableDictionary *dic=[[NSMutableDictionary alloc] init];
+//    [dic setObject:nick forKey:@"nick"];
+//    [dic setObject:[NSString stringWithFormat:@"%@",[HomeHttp selectGradeNum:grade]] forKey:@"grade"];
+//    [dic setObject:mail forKey:@"mail"];
+//    [dic setObject:img forKey:@"img"];
+//    
+//    Ptt_Log(@"%@",dic);
+//    
+//    AFHTTPSessionManager *manger = [AFHTTPSessionManager manager];
+//    
+//    manger.responseSerializer.acceptableContentTypes = [NSSet setWithObject:@"text/html"];
+//    
+//    manger.responseSerializer = [AFHTTPResponseSerializer serializer];
+//    
+//    NSString *urlStr = [NSString stringWithFormat:@"%@?token=%@",API_UserChangeMessage,[UserTool userModel].token];
+//    
+//    NSString* url = [urlStr stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+//    
+//    NSLog(@"%@",urlStr);
+//    
+//    [manger PUT:url parameters:dic success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
+//        
+//        NSDictionary * dict = [NSJSONSerialization JSONObjectWithData:responseObject options:NSJSONReadingAllowFragments error:nil];
+//        
+//        if ([[dict objectForKey:@"code"] intValue] != 0) {
+//            
+//            [ShowMessageTipUtil showTipLabelWithMessage:[dic objectForKey:@"message"]];
+//            
+//        }
+//        else
+//        {
+//            
+//        successBlock(dict);
+//            
+//        }
+//        
+//    } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+//        
+//        NSLog(@"%@",error);
+//    }];
+//
+//    
+}
+
+//SSO登录
++(void)postOpenNumberWithOpenId:(NSString *)openid andWithType:(NSString *)type successBlock:(void (^)(id))block{
+//    AFHTTPSessionManager *manger = [AFHTTPSessionManager manager];
+//        manger.responseSerializer = [AFHTTPResponseSerializer serializer];
+//    
+//    NSString *urlStr = [NSString stringWithFormat:@"%@%@",API_General,API_SSO_Login];
+//    
+//    NSString* url = [urlStr stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+//    NSDictionary * dict = @{@"openid":openid,
+//                            @"type":type};
+//    
+//    NSLog(@"%@",urlStr);
+//    [manger POST:url parameters:dict success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
+//        NSDictionary * resultDict = [NSJSONSerialization JSONObjectWithData:responseObject options:NSJSONReadingAllowFragments error:nil];
+//        if ([[resultDict objectForKey:@"code"] intValue] != 0)
+//        {
+//            [ShowMessageTipUtil showTipLabelWithMessage:[resultDict objectForKey:@"message"]];
+//        }else{
+//            
+//            UserModel *user  = [[UserModel alloc] init];
+//            user.uid = [resultDict objectForKey:@"uid"];
+//            user.token = [resultDict objectForKey:@"token"];
+//            user.deviceToken = [resultDict objectForKey:@"deviceToken"];
+//
+//            
+//            // 存储帐号信息
+//            [UserTool save:user];
+//            block(dict);
+//        }
+//        Ptt_Log(@"resultDict = %@",resultDict);
+//    } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+//       
+//        PttL_Log(@"error = %@",error);
+//    }];
+//    
+    
+}
+
++(void)registerWithBindPhoneNumber:(NSString *)phone verify:(NSString *)verify openid:(NSString *)openid Type:(NSString *)type successJson:(void (^)(id))successBlock{
+    AFHTTPSessionManager *manger = [AFHTTPSessionManager manager];
+    manger.responseSerializer = [AFHTTPResponseSerializer serializer];
+    
+
+    NSDictionary * dict = @{@"openid":openid,
+                            @"type":type,
+                            @"mobile":phone,
+                            @"pwd":verify};
+    
+    NSLog(@"%@",API_UserLogin);
+    [manger POST:API_UserLogin parameters:dict success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
+        NSDictionary * resultDict = [NSJSONSerialization JSONObjectWithData:responseObject options:NSJSONReadingAllowFragments error:nil];
+        if ([[resultDict objectForKey:@"code"] intValue] == 0) {
+            successBlock(resultDict);
+        }else{
+            if ([[resultDict objectForKey:@"message"] isEqualToString:@"用户不存在"]) {
+                successBlock(resultDict);
+            }else{
+               [ShowMessageTipUtil showTipLabelWithMessage:[resultDict objectForKey:@"message"]];
+            }
+        }
+        
+        
+        NSLog(@"resultDict = %@",resultDict);
+    } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+        
+    }];
+
+}
+
+//查询是否手机或openid注册
++(void)getMobileNumberIsRegister:(NSString *)openid Type:(NSString *)type successBlock:(void (^)(id))block{
+    AFHTTPSessionManager *manger = [AFHTTPSessionManager manager];
+    manger.responseSerializer = [AFHTTPResponseSerializer serializer];
+    
+    NSString *urlStr = [NSString stringWithFormat:@"%@%@?openid=%@&type=%@",API_General,API_IsRegister,openid,type];
+    [manger GET:urlStr parameters:nil success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
+        
+        NSDictionary * resultDict = [NSJSONSerialization JSONObjectWithData:responseObject options:NSJSONReadingAllowFragments error:nil];
+        if ([[resultDict objectForKey:@"code"] intValue] == 0) {
+            block(resultDict);
+        }else{
+            
+        }
+    } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+        NSLog(@"error=%@",error);
+    }];
+    
+}
+
+/**
+ * 发送语音验证码  注册页面
+ */
++(void)voiceSendPhoneNumber:(NSString *)mobile Type:(NSString *)type successBlock:(void (^)(id))block{
+    NSMutableDictionary *dic=[[NSMutableDictionary alloc] init];
+    [dic setObject:mobile forKey:@"mobile"];
+    [dic setObject:type forKey:@"type"];
+    
+    AFHTTPSessionManager *manger = [AFHTTPSessionManager manager];
+    
+    manger.responseSerializer = [AFHTTPResponseSerializer serializer];
+    
+    [manger POST:API_VoiceSend parameters:dic success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
+        
+        NSDictionary * resultDict = [NSJSONSerialization JSONObjectWithData:responseObject options:NSJSONReadingAllowFragments error:nil];
+            NSLog(@"语音验证码%@",resultDict);
+            block(resultDict);
+    } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+        NSLog(@"语音验证码发送失败");
+    }];
+}
+//正则判断 ------------------>
++ (NSString *)checkMobile:(NSString *)aMobile
+{
+    if (aMobile.length == 0)
+    {
+        return @"请填写正确手机号";
+    }else if (aMobile.length != 11)
+    {
+        return @"请填写正确手机号";
+    }else{
+        /**
+         * 移动号段正则表达式
+         */
+        NSString *CM_NUM = @"^((13[4-9])|(14[57])|(15[0-2,7-9])|(17[0138])|(18[2-4,7-8]))\\d{8}|(1705)\\d{7}$";
+        /**
+         * 联通号段正则表达式
+         */
+        NSString *CU_NUM = @"^((13[0-2])|(145)|(15[5-6])|(176)|(18[5,6]))\\d{8}|(1709)\\d{7}$";
+        /**
+         * 电信号段正则表达式
+         */
+        NSString *CT_NUM = @"^((133)|(153)|(177)|(18[0,1,9]))\\d{8}$";
+        NSPredicate *pred1 = [NSPredicate predicateWithFormat:@"SELF MATCHES %@", CM_NUM];
+        BOOL isMatch1 = [pred1 evaluateWithObject:aMobile];
+        NSPredicate *pred2 = [NSPredicate predicateWithFormat:@"SELF MATCHES %@", CU_NUM];
+        BOOL isMatch2 = [pred2 evaluateWithObject:aMobile];
+        NSPredicate *pred3 = [NSPredicate predicateWithFormat:@"SELF MATCHES %@", CT_NUM];
+        BOOL isMatch3 = [pred3 evaluateWithObject:aMobile];
+        
+        if (isMatch1 || isMatch2 || isMatch3) {
+            return nil;
+        }else{
+            return @"请填写正确手机号";
+        }
+    }
+    return nil;
+    
+}
+
++ (NSString *)checkPassword:(NSString *)aPassword
+{
+    if (aPassword.length == 0) {
+        return @"请输入密码";
+    }
+    if ( aPassword.length < 6 | aPassword.length > 16) {
+        return @"密码长度应在6-16位，且不能含汉字或空格";
+    }
+    return  nil;
+}
+
++(NSString *)checkVerifyCode:(NSString *)verifyCode{
+    if(verifyCode.length == 0){
+        return @"请输入正确的短信验证码";
+    }
+    if(verifyCode.length != 6){
+        return @"请输入正确的短信验证码";
+    }
+    
+    return nil;
+}
+
++ (BOOL)validateEmail:(NSString *)email
+{
+
+    NSString *emailRegex = @"[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,4}";
+    
+    NSPredicate *emailTest = [NSPredicate predicateWithFormat:@"SELF MATCHES %@", emailRegex];
+    
+    return [emailTest evaluateWithObject:email];
+    
+}
+
+@end

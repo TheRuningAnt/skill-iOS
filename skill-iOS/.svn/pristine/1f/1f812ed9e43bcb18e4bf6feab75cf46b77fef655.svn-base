@@ -1,0 +1,433 @@
+//
+//  HomePageViewController.m
+//  skill-iOS
+//
+//  Created by 赵广亮 on 2016/10/21.
+//  Copyright © 2016年 zhaoguangliangzhaoguanliang. All rights reserved.
+//
+
+#import "HomePageController.h"
+#import "JobIntroduceView.h"
+#import "JobsListItem.h"
+#import "JobsListController.h"
+#import "JobDetailController.h"
+#import "LoginViewController.h"
+#import "JobDailyController.h"
+#import "WirteDailyController.h"
+#import "SignupController.h"
+
+@interface HomePageController ()<PTTCyclevViewDelegate,UICollectionViewDelegate,UICollectionViewDataSource>
+
+/**
+ *  头视图
+ */
+@property (nonatomic,strong) UIView *headView;
+/**
+ *  头视图使用的图片数组  本地
+ */
+@property (nonatomic,strong) NSMutableArray *headImages;
+/**
+ *  头部按钮提示标题
+ */
+@property (nonatomic,strong) NSMutableArray *headImageTitles;
+
+
+/**
+ *  职业任务
+ */
+@property (nonatomic,strong) UIImageView *jobMissionImageV;
+/**
+ *  职业日报
+ */
+@property (nonatomic,strong) UIImageView *jobPaperImageV;
+/**
+ *  写日报
+ */
+@property (nonatomic,strong) UIImageView *wirtePaper;
+
+/**
+ *  职业列表
+ */
+@property (nonatomic,strong) UICollectionView *jobListCollectionView;
+/**
+ *  存储职业Model数组
+ */
+@property (nonatomic,strong) NSMutableArray *jobsArray;
+@end
+
+@implementation HomePageController
+
+-(void)viewWillAppear:(BOOL)animated{
+    
+    NSDictionary *dict = @{NSForegroundColorAttributeName:color_24c9a7,
+                           NSFontAttributeName:[UIFont systemFontOfSize:17.0f],
+                           };
+    self.navigationController.navigationBar.titleTextAttributes = dict;
+    [self.navigationController.navigationBar setShadowImage:nil];
+}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    
+    [self initializeData];
+    
+    [self setupUI];
+    
+    [self getDataOfJobList];
+}
+
+//初始化数据
+-(void)initializeData{
+    
+    [self.headImages addObjectsFromArray:@[@"banner-Image",@"banner-Image",@"banner-Image"]];
+}
+
+//设置子控件布局
+-(void)setupUI{
+    
+    self.view.backgroundColor = [UIColor cyanColor];
+    self.title = @"IT修真院";
+    
+    [self createHeadView];
+    [self.view addSubview:self.jobListCollectionView];
+}
+
+-(void)getDataOfJobList{
+    
+    KCheckNetWorkAndRetuen(^(){
+        
+        [self.jobListCollectionView.mj_header endRefreshing];
+    })
+    
+    //每次请求网络数据前检测网络状态
+    [PTTReachability PTTReachabilityWithSuccessBlock:^(NSString *status) {
+        if ([status isEqualToString:@"无连接"]) {
+            
+            [ShowMessageTipUtil showTipLabelWithMessage:@"无网络链接,请检查网络状态"];
+            [self.jobListCollectionView.mj_header endRefreshing];
+            return ;
+        }
+    }];
+    
+    [self.jobsArray removeAllObjects];
+    [self.jobListCollectionView reloadData];
+    
+    [HttpService sendGetHttpRequestWithUrl:API_JobsList paraments:nil successBlock:^(NSDictionary *jsonDic) {
+        
+        NSArray *arrayOfOccupations = [jsonDic objectForKey:@"occupations"];
+        for(NSDictionary *dic in arrayOfOccupations){
+            
+            JobModel *model = [JobModel new];
+            [model setValuesForKeysWithDictionary:dic];
+            [self.jobsArray addObject:model];
+        }
+        
+        [self.jobListCollectionView.mj_header endRefreshing];
+        [self.jobListCollectionView reloadData];
+    }];
+}
+
+#pragma mark 创建子控件
+
+//创建头视图
+-(void)createHeadView{
+    
+    WK(weakSelf);
+    
+    //头视图数据
+    self.headView.frame = CGRectMake(0, 0, kWindowWidth, 300*HEIGHT_SCALE);
+    self.headView.backgroundColor = color_e8efed;
+    
+    //轮播图数据
+    PTTCycleSrollView *cycleScrollView = [[PTTCycleSrollView alloc] initCycleScrollViewWithLocalImages:self.headImages frame:CGRectMake(0, 0, kWindowWidth, 160 * HEIGHT_SCALE) autoRun:YES timeInterval:4 showPageControl:YES pageControlAlignment:PTT_PAGE_CONTROL_ALIGNMENT_LEFT_MID];
+    cycleScrollView.pttDelegate = self;
+    
+    [self.headView addSubview:cycleScrollView];
+    
+    //职业任务
+    self.jobMissionImageV = [[UIImageView alloc] initWithFrame:CGRectMake(0, CGRectGetHeight(cycleScrollView.frame), kWindowWidth/3, 85 * HEIGHT_SCALE) localImage:@"job-represent" contendMode:PTT_ImageView_Image_Contend_Mode_Aspect title:@"职业任务" fontSize:14*HEIGHT_SCALE titleColor:color_0f4068 withAction:^(id sender) {
+        
+        /**
+         *检测用户状态
+         1.检测用户是否有职业
+           (1)有职业推出职业详情
+           (2)没有职业提示用户去报名
+         */
+        
+            if([UserTool userJobId] > 0){
+                
+                //推出职业详情
+                JobDetailController *jobDetailVC = [[JobDetailController alloc] init];
+                jobDetailVC.jobId = [UserTool userJobId];
+                [self.navigationController pushViewController:jobDetailVC animated:YES];
+            }else{
+                
+                //提示用户去报名
+                [PTTShowAlertView showAlertViewWithTitle:@"提示" message:@"去选择职业报名？" cancleBtnTitle:@"取消" cancelAction:nil sureBtnTitle:@"确定" sureAction:^{
+                    
+                    JobsListController *joblistController = [[JobsListController alloc] init];
+                    [self.navigationController pushViewController:joblistController animated:YES];
+                }];
+            }
+    }];
+    
+    [self.headView addSubview:self.jobMissionImageV];
+    
+    //职业日报
+    self.jobPaperImageV = [[UIImageView alloc] initWithFrame:CGRectMake(kWindowWidth/3, CGRectGetHeight(cycleScrollView.frame), kWindowWidth/3, 85 * HEIGHT_SCALE) localImage:@"job-paper" contendMode:PTT_ImageView_Image_Contend_Mode_Aspect title:@"职业日报" fontSize:14*HEIGHT_SCALE titleColor:color_0f4068 withAction:^(id sender) {
+        
+        /**
+         *检测用户状态
+         1.检测用户是否有职业
+         (1)有职业推出职业日报
+         (2)没有职业提示用户去报名
+         */
+        
+            if([UserTool userJobId] > 0){
+                
+                //推出职业日报
+                JobDailyController *jobDetailVC = [[JobDailyController alloc] init];
+                jobDetailVC.oid = [UserTool userJobId];
+                [self.navigationController pushViewController:jobDetailVC animated:YES];
+            }else{
+                
+                //提示用户去报名
+                [PTTShowAlertView showAlertViewWithTitle:@"提示" message:@"去选择职业报名？" cancleBtnTitle:@"取消" cancelAction:nil sureBtnTitle:@"确定" sureAction:^{
+                    
+                    JobsListController *joblistController = [[JobsListController alloc] init];
+                    [self.navigationController pushViewController:joblistController animated:YES];
+                }];
+            }
+    }];
+    
+    [self.headView addSubview:self.jobPaperImageV];
+    
+    //写日报
+    self.wirtePaper = [[UIImageView alloc] initWithFrame:CGRectMake(kWindowWidth/3*2, CGRectGetHeight(cycleScrollView.frame), kWindowWidth/3, 85 * HEIGHT_SCALE) localImage:@"write-paper" contendMode:PTT_ImageView_Image_Contend_Mode_Aspect title:@"写日报" fontSize:14*HEIGHT_SCALE titleColor:color_0f4068 withAction:^(id sender) {
+        
+        /**
+         *检测用户状态
+         1.检测用户是否有职业
+         (1)有职业推出写日报
+         (2)没有职业提示用户去报名
+         */
+        if([UserTool userJobId] > 0){
+            
+            //推出写日报页面
+            WirteDailyController *writeDailyVC = [[WirteDailyController alloc] init];
+            [weakSelf.navigationController presentViewController:writeDailyVC animated:YES completion:nil];
+        }else{
+            
+            //提示用户去报名
+            [PTTShowAlertView showAlertViewWithTitle:@"提示" message:@"去选择职业报名？" cancleBtnTitle:@"取消" cancelAction:nil sureBtnTitle:@"确定" sureAction:^{
+                
+                JobsListController *joblistController = [[JobsListController alloc] init];
+                [self.navigationController pushViewController:joblistController animated:YES];
+            }];
+        }
+    }];
+    [self.headView addSubview:self.wirtePaper];
+    
+    //"热门推荐"及"更多"按钮
+    UIView *subContentView = [[UIView alloc] init];
+    subContentView.backgroundColor = [UIColor whiteColor];
+    [self.headView addSubview:subContentView];
+    
+    [subContentView mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.width.equalTo(@(kWindowWidth));
+        make.bottom.mas_equalTo(self.headView.mas_bottom);
+        make.height.mas_equalTo(@(50*HEIGHT_SCALE));
+    }];
+
+    //装饰tip
+    UILabel *tipLabel = [[UILabel alloc] init];
+    tipLabel.backgroundColor = color_24c9a7;
+    [subContentView addSubview:tipLabel];
+    [tipLabel mas_makeConstraints:^(MASConstraintMaker *make) {
+       
+        make.centerY.mas_equalTo(subContentView.mas_centerY).offset(0);
+        make.width.mas_equalTo(@(2.5*WIDTH_SCALE));
+        make.left.equalTo(subContentView.mas_left).offset(10);
+        make.height.equalTo(@(17*HEIGHT_SCALE));
+    }];
+    
+    //热门推荐Label
+    UILabel *textLabel = [[UILabel alloc] init];
+    textLabel = [[UILabel alloc] init];
+    textLabel.textColor = color_0f4068;
+    textLabel.text = @"热门推荐";
+    textLabel.font = [UIFont systemFontOfSize:15];
+    [subContentView addSubview:textLabel];
+    [textLabel mas_makeConstraints:^(MASConstraintMaker *make) {
+       
+        make.centerY.mas_equalTo(subContentView.mas_centerY).offset(0);
+        make.width.mas_equalTo(@(100*WIDTH_SCALE));
+        make.left.equalTo(tipLabel.mas_right).offset(4);
+        make.height.mas_equalTo(@(20*HEIGHT_SCALE));
+    }];
+    
+    //更多装饰按钮
+    UIImageView *tipImageV = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"more-tip"]];
+    [subContentView addSubview:tipImageV];
+    [tipImageV mas_makeConstraints:^(MASConstraintMaker *make) {
+        
+        make.size.mas_equalTo(CGSizeMake(8, 12));
+        make.right.equalTo(subContentView.mas_right).offset(-8*WIDTH_SCALE);
+        make.centerY.mas_equalTo(subContentView.centerY);
+    }];
+    
+    //"更多"m 按钮
+    UIButton *moreBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+    [moreBtn addTarget:self action:@selector(clickMoreBtn) forControlEvents:UIControlEventTouchUpInside];
+    [moreBtn setTitle:@"更多" forState:UIControlStateNormal];
+    [moreBtn setTitleColor:color_7892a5 forState:UIControlStateNormal];
+    moreBtn.titleLabel.font = [UIFont systemFontOfSize: 15.0];
+    [subContentView addSubview:moreBtn];
+    [moreBtn mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.centerY.mas_equalTo(subContentView.centerY);
+        make.width.equalTo(@(40*WIDTH_SCALE));
+        make.height.equalTo(@(40*HEIGHT_SCALE));
+        make.right.equalTo(tipImageV.mas_left).offset(-6*WIDTH_SCALE);
+    }];
+    
+    
+    
+    //头视图与collectionView分隔线
+    UILabel *line = [[UILabel alloc] init];
+    [subContentView addSubview:line];
+    line.backgroundColor = color_dfeaff;
+    [line mas_makeConstraints:^(MASConstraintMaker *make) {
+       
+        make.bottom.mas_equalTo(subContentView.mas_bottom);
+        make.size.mas_equalTo(CGSizeMake(kWindowWidth, 1));
+    }];
+    
+}
+
+//更多  按钮点击触发
+-(void)clickMoreBtn{
+    
+    JobsListController *jobsListVC = [[JobsListController alloc] init];
+    [self.navigationController pushViewController:jobsListVC animated:YES];
+}
+
+#pragma 轮播图代理方法
+-(void)cilickAtIndex:(NSInteger)index{
+    NSLog(@"当前点击了轮播图第%lu张图片",index);
+}
+
+#pragma mark 职业列表CollectionView 代理
+
+-(NSInteger)numberOfSectionsInCollectionView:(UICollectionView *)collectionView{
+    return 1;
+}
+
+-(NSInteger)collectionView:(UICollectionView *)collectionView numberOfItemsInSection:(NSInteger)section{
+    if(self.jobsArray.count < 8){
+        return self.jobsArray.count;
+    }
+    else return 8;
+}
+
+-(UICollectionViewCell*)collectionView:(UICollectionView *)collectionView cellForItemAtIndexPath:(NSIndexPath *)indexPath{
+    
+    JobsListItem *item = [collectionView dequeueReusableCellWithReuseIdentifier:@"jobItem" forIndexPath:indexPath];
+    item.jobModel = self.jobsArray[indexPath.row];
+    return item;
+}
+
+// 两个cell之间的最小间距，是由API自动计算的，只有当间距小于该值时，cell会进行换行
+- (CGFloat)collectionView:(UICollectionView *)collectionView layout:(UICollectionViewLayout*)collectionViewLayout minimumInteritemSpacingForSectionAtIndex:(NSInteger)section
+{
+    return 10;
+}
+
+// 两行之间的最小间距
+- (CGFloat)collectionView:(UICollectionView *)collectionView layout:(UICollectionViewLayout*)collectionViewLayout minimumLineSpacingForSectionAtIndex:(NSInteger)section
+{
+    return 0;
+}
+
+//返回CollectionView 头视图
+- (UICollectionReusableView *)collectionView:(UICollectionView *)collectionView viewForSupplementaryElementOfKind:(NSString *)kind atIndexPath:(NSIndexPath *)indexPath
+{
+    UICollectionReusableView *reusableview = nil;
+    
+    if (kind == UICollectionElementKindSectionHeader)
+    {
+        UICollectionReusableView *headerView = [collectionView dequeueReusableSupplementaryViewOfKind:UICollectionElementKindSectionHeader withReuseIdentifier:@"HeaderView" forIndexPath:indexPath];
+        
+        [headerView addSubview:self.headView];
+        reusableview = headerView;
+    }
+    return reusableview;
+}
+
+//执行的 headerView 代理  返回 headerView 的高度
+- (CGSize)collectionView:(UICollectionView *)collectionView layout:(UICollectionViewLayout*)collectionViewLayout referenceSizeForHeaderInSection:(NSInteger)section
+{
+    CGFloat height = self.headView.frame.size.height;
+    return CGSizeMake(kWindowWidth, height);
+}
+
+//collectionView点击事件
+-(void)collectionView:(UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)indexPath{
+    
+    //推出职业详情页面
+    JobDetailController *jobDetailController = [[JobDetailController alloc] init];
+    
+    JobModel *model = self.jobsArray[indexPath.row];
+    jobDetailController.jobId = model.jobId;
+    
+    [self.navigationController pushViewController:jobDetailController animated:YES];
+}
+
+#pragma mark 懒加载
+-(UIView *)headView{
+    if (!_headView) {
+        _headView = [[UIView alloc] init];
+    }
+    return _headView;
+}
+
+-(NSMutableArray *)headImages{
+    if (!_headImages) {
+        _headImages = @[].mutableCopy;
+    }
+    return _headImages;
+}
+
+-(UICollectionView *)jobListCollectionView{
+    
+    if (!_jobListCollectionView) {
+        
+        UICollectionViewFlowLayout *layout = [[UICollectionViewFlowLayout alloc] init];
+        layout.scrollDirection = UICollectionViewScrollDirectionVertical;
+        layout.itemSize = CGSizeMake(kWindowWidth/2 - 20 , kWindowWidth/2/4*3 + 65);
+    
+        _jobListCollectionView = [[UICollectionView alloc] initWithFrame:CGRectMake(0, 0, kWindowWidth, self.view.frame.size.height - 64 - 49) collectionViewLayout:layout];
+        _jobListCollectionView.delegate = self;
+        _jobListCollectionView.dataSource = self;
+        _jobListCollectionView.showsVerticalScrollIndicator = NO;
+        _jobListCollectionView.backgroundColor = [UIColor whiteColor];
+        [_jobListCollectionView registerClass:[JobsListItem class] forCellWithReuseIdentifier:@"jobItem"];
+        [_jobListCollectionView registerClass:[UICollectionReusableView class] forSupplementaryViewOfKind:UICollectionElementKindSectionHeader withReuseIdentifier:@"HeaderView"];
+        
+        WK(weakSelf);
+        _jobListCollectionView.mj_header = [MJRefreshNormalHeader   headerWithRefreshingBlock:^{
+            [weakSelf getDataOfJobList];
+        }];
+
+    }
+    return _jobListCollectionView;
+}
+
+-(NSMutableArray *)jobsArray{
+    
+    if (!_jobsArray) {
+        _jobsArray = @[].mutableCopy;
+    }
+    return _jobsArray;
+}
+
+@end

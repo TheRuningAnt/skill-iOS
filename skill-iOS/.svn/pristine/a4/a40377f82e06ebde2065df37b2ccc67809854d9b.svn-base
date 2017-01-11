@@ -1,0 +1,184 @@
+//
+//  PrefixHeader.pch
+//  skill-iOS
+//
+//  Created by 赵广亮 on 2016/10/21.
+//  Copyright © 2016年 zhaoguangliangzhaoguanliang. All rights reserved.
+//
+
+#ifdef __OBJC__
+#ifndef PrefixHeader_pch
+#define PrefixHeader_pch
+
+#import "BasicViewController.h"
+#import "PTTReachability.h"
+#import "NavigationViewController.h"
+#import "UIColor+Simple.h"
+#import "ShowMessageTipUtil.h"
+#import "UserModel.h"
+#import "UserTool.h"
+#import "UIView+Extension.h"
+#import "FrameAutoScaleLFL.h"
+#import "RegisterHttp.h"
+#import "UINavigationController+FDFullscreenPopGesture.h"
+#import "UIImageView+PTT.h"
+#import "PTTCycleSrollView.h"
+#import "HttpService.h"
+#import "JobModel.h"
+#import "PTT_Data_Kit.h"
+#import "PttLoadingTip.h"
+#import "PTTShowAlertView.h"
+#import "PTTDateKit.h"
+#import <UIKit/UIKit.h> 
+#import <Foundation/Foundation.h>
+
+//三方库头文件
+#import "MBProgressHUD.h"
+#import "Masonry.h"
+#import "MJExtension.h"
+#import "UIImageView+WebCache.h"
+#import "MJRefresh.h"
+#import "EMSDK.h"
+
+
+//存储个人信息保存路径
+#define KAccountFilePath [[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject] stringByAppendingPathComponent:@"account.plist"]
+
+#define KUserToken [UserTool userModel].token
+#define KUserUid [UserTool userModel].uid
+
+//没网状态推出当前方法
+#define KCheckNetWorkAndRetuen(block)    __block BOOL noNetWork = NO;\
+[PTTReachability PTTReachabilityWithSuccessBlock:^(NSString *status) {\
+    if ([status isEqualToString:@"无连接"]) {\
+        [ShowMessageTipUtil showTipLabelWithMessage:@"无网络链接,请检查网络状态"];\
+        noNetWork = YES;\
+    }\
+}];\
+if (noNetWork) {\
+    block();\
+    return;\
+}\
+
+
+//弱引用
+#define WK(weakSelf) __weak typeof (self) weakSelf = self;
+
+// 标准的RGBA设置
+#define UIColorRGBA(r, g, b, a) [UIColor colorWithRed:(r)/255.0 green:(g)/255.0 blue:(b)/255.0 alpha:(a)]
+
+//色值
+#define color_24c9a7 [UIColor colorWithHexString:@"24c9a7"]  //tabControl文字标题颜色
+#define color_51d4b9 [UIColor colorWithHexString:@"51d4b9"]  //深绿色
+#define color_0f4068 [UIColor colorWithHexString:@"0f4068"]   //字体黑色
+#define color_7892a5 [UIColor colorWithHexString:@"7892a5"]   //字体浅灰色
+#define color_e8efed [UIColor colorWithHexString:@"e8efed"]   //背景色 
+#define color_24c9a7 [UIColor colorWithHexString:@"24c9a7"]   //绿色
+#define color_dfeaff [UIColor colorWithHexString:@"dfeaff"]  //首页头视图分割线颜色
+#define color_c1cfeb [UIColor colorWithHexString:@"c1cfeb"]   //首页职业列表边框 
+#define color_ffc651 [UIColor colorWithHexString:@"ffc651"]   //高亮字体黄色
+#define color_fdb92c [UIColor colorWithHexString:@"ffc651"]    //字体黄色
+#define color_fafafa [UIColor colorWithHexString:@"fafafa"]    //浅色背景
+#define color_ffffff [UIColor colorWithHexString:@"ffffff"]    //白色背景
+#define color_eff1f5 [UIColor colorWithHexString:@"eff1f5"]    //输入框背景色
+#define color_9eafbd [UIColor colorWithHexString:@"9eafbd"]    //字体浅灰色
+#define color_0bcaa7 [UIColor colorWithHexString:@"0bcaa7"]    //深绿色
+#define color_0f4068 [UIColor colorWithHexString:@"0f4068"]    //深绿色
+#define color_f2576a [UIColor colorWithHexString:@"f2576a"]    //提示红色
+#define color_24c8a8 [UIColor colorWithHexString:@"24c8a8"]    //导航栏字体绿色
+#define color_8ea9bc [UIColor colorWithHexString:@"8ea9bc "]    //输入框提示字体浅灰色
+
+
+
+
+
+#define color_24c9a8 [UIColor colorWithHexString:@"24c9a8"]
+#define color_999999 [UIColor colorWithHexString:@"999999"]
+#define color_e4e4e4 [UIColor colorWithHexString:@"e4e4e4"]
+#define color_ffffff [UIColor colorWithHexString:@"ffffff"]
+#define color_e1e1e1 [UIColor colorWithHexString:@"e1e1e1"]
+#define color_d9d9d9 [UIColor colorWithHexString:@"d9d9d9"]
+#define color_03a9f4 [UIColor colorWithHexString:@"03a9f3"]
+#define color_f9f9f9 [UIColor colorWithHexString:@"f9f9f9"]
+#define color_d9d9d9 [UIColor colorWithHexString:@"d9d9d9"]
+#define color_d6d6d6 [UIColor colorWithHexString:@"d6d6d6"]
+#define color_1fb9fc [UIColor colorWithHexString:@"1fb9fc"]
+#define color_8c5233 [UIColor colorWithHexString:@"8c5233"]
+#define color_e8e8e8 [UIColor colorWithHexString:@"e8e8e8"]
+#define color_f0f4f7 [UIColor colorWithHexString:@"f0f4f7"]
+#define color_b3b3b3 [UIColor colorWithHexString:@"b3b3b3"]
+
+
+//屏幕比例
+#define HEIGHT_SCALE [[UIScreen mainScreen] bounds].size.height/667.f
+#define WIDTH_SCALE [[UIScreen mainScreen] bounds].size.width/375.f
+
+//屏幕宽高
+#define kWindowWidth  ([[UIScreen mainScreen] bounds].size.width)
+#define kWindowHeight ([[UIScreen mainScreen] bounds].size.height)
+
+//计算文本高度
+#define KTextHeight(str) [str boundingRectWithSize:CGSizeMake(300, 10000) options:NSStringDrawingUsesLineFragmentOrigin attributes:@{NSFontAttributeName:[UIFont systemFontOfSize:14]} context:nil].size.height
+
+//线上环境
+//#define API_General @"http://121.41.226.206:10010"
+//测试环境
+//#define API_General @"http://115.29.203.53:10010/"
+//开发环境
+#define API_General @"http://120.92.4.210:10010/"
+
+/**
+ *  接口拼接字段
+ */
+//验证码
+#define API_RegisterSend API_General@"/a/code/send"
+//语音验证码
+#define API_VoiceSend    API_General@"/a/code/voice"
+//注册
+#define API_UserRegister API_General@"/a/user"
+//登录
+#define API_UserLogin API_General@"/a/login"  
+//手机号是否注册
+#define API_IsRegister API_General@"/a/mobile"
+//忘记密码
+#define API_UserChangePwd API_General@"/a/password/forget"
+//获取所有职业列表
+#define API_JobsList API_General@"/a/occupation/list"
+//获取职业详情
+#define API_JobDetail API_General@"a/occupation/"
+//任务查询
+#define API_TaskList API_General@"/a/task/search/query"
+//任务详情
+#define API_TaskDetail API_General@"/a/task/"
+//请求班级日报列表
+#define API_ClassDaily API_General@"a/daily/search/query"
+//请求班级列表数据
+#define API_ClassList API_General@"/a/classes/search/query"
+//加入班级
+#define API_JoinClass API_General@"/a/u/classmate/"
+//获取资源模块数据
+#define API_JobLibrary API_General@"a/u/occupation/document/"
+//文档点赞 点赞是Post请求  取消点赞为delete请求
+#define API_LibraryLike API_General@"a/u/document/like/"
+//文档收藏  收藏为post请求  取消收藏为delete请求
+#define API_LibraryCollect API_General@"/a/u/document/collection/"
+//我的收藏
+#define API_MyCollect API_General@"/a/document/collection/"
+//我的消息列表
+#define API_Message API_General@"/a/u/receive/message/list"
+//将单条消息标记为已读
+#define API_MessageRead API_General@"/a/u/read/message/"
+//设置全部消息已读
+#define API_MessageAllRead API_General@"/a/u/read/message/all"
+//获取个人基本信息
+#define API_PersonBaseInfo API_General@"a/user/detail/base"
+//获取个人详细信息
+#define API_PersonFullInfo API_General@"a/user/detail/full"
+//修改个人信息
+#define API_ChangePersonInfo API_General@"/a/u/user"
+//上传图片接口
+#define API_PutImage API_General@"a/u/img/thumb"
+
+
+#endif /* PrefixHeader_pch */
+#endif

@@ -1,0 +1,612 @@
+//
+//  MineController.m
+//  skill-iOS
+//
+//  Created by 赵广亮 on 2016/10/21.
+//  Copyright © 2016年 zhaoguangliangzhaoguanliang. All rights reserved.
+//
+
+#import "MineController.h"
+#import "LoginViewController.h"
+#import "MyJobNoneController.h"
+#import "JobDetailController.h"
+#import "JobDailyController.h"
+#import "ClassDetailController.h"
+#import "ResourceController.h"
+#import "MessageController.h"
+#import "SetViewController.h"
+#import "MoreController.h"
+#import "PersonController.h"
+#import "MyClassController.h"
+#import "UIImageView+PTT.h"
+#import "PTTPickView.h"
+#import "JobsListController.h"
+
+@interface MineController ()<EMChatManagerDelegate>
+
+{
+    @private
+    
+    //设置用户头像
+   __block UIImageView *_headImageV;
+    //班级标题label
+   __block UILabel *_classMessageL;
+    //用户名label
+   __block UILabel *_nameL;
+    //地址label
+   __block UILabel *_addressL;
+    //签名Label
+   __block UILabel *_wordL;
+    //设置未读消息数字
+    NSInteger unreadMessageNum;
+    //当前加载未读消息的页面
+    __block NSInteger _page;
+    //创建一个保存当前用户信息的model
+    //处理点击事件跳转
+    __block UserModel *currentModel;
+}
+
+/**
+ 未读消息Label
+ */
+@property (nonatomic,strong) UILabel *unreadL;;
+
+@end
+
+@implementation MineController
+
+-(void)viewWillAppear:(BOOL)animated{
+    
+    [super viewWillAppear:animated];
+    
+    //设置导航栏背景透明
+    [self.navigationController.navigationBar setBackgroundImage:[UIImage new] forBarMetrics:UIBarMetricsDefault];
+    [self.navigationController.navigationBar setShadowImage:[UIImage new]];
+    
+    [self.navigationController setNavigationBarHidden:YES animated:animated];
+
+    //每次进入该页面 都重新向服务器获取最新的数据并更新本地的用户信息
+    WK(weakSelf);
+    
+    //根据不同模式 进行不同的数据刷新
+    if (self.visitor) {
+        
+        [self updataVisiterInfo];
+    }else{
+        
+        [UserTool updateUserOidAndCidWithBlcok:^{
+            
+            [weakSelf updataMyInfo];
+            [weakSelf loadUnreadMessageData];
+        }];
+    }
+    
+    //启动友盟页面统计
+    [MobClick beginLogPageView:@"我的模块"];
+}
+
+-(void)viewWillDisappear:(BOOL)animated{
+    
+    [super viewWillDisappear:animated];
+    
+    //退出友盟页面统计
+    [MobClick endLogPageView:@"我的模块"];
+    
+    [self.navigationController setNavigationBarHidden:NO animated:YES];
+}
+
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    // Do any additional setup after loading the view.
+    
+    //设置页面布局
+    [self setupUI];
+    
+    //添加环信监听
+    [self addMonitorHuanXinMessage];
+}
+
+//设置子控件布局
+-(void)setupUI{
+    
+    self.view.backgroundColor = color_e8efed;
+    
+    WK(weakSelf);
+    
+    //设置背景
+    UIImageView *backImageV = [[UIImageView alloc]  initWithframe:CGRectMake(0, 0, kWindowWidth, 200*HEIGHT_SCALE) andImage:@"my-background" contendMode:PTT_ImageView_Image_Contend_Mode_Fill withAction:^(id sender){
+        
+        PersonController *personControl = [[PersonController alloc] init];
+        personControl.visitor = self.visitor;
+        personControl.visitorId = currentModel.uid;
+        [weakSelf.navigationController pushViewController:personControl animated:YES];
+    }];
+    [self.view addSubview:backImageV];
+    
+    //设置用户头像模块
+    //设置用户头像背景
+    UIImageView *headBackImageV = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"my-back-shadow"]];
+    
+    headBackImageV.layer.masksToBounds = YES;
+    headBackImageV.layer.cornerRadius = 100*WIDTH_SCALE/2;
+    
+    [self.view addSubview:headBackImageV];
+    [headBackImageV mas_makeConstraints:^(MASConstraintMaker *make) {
+       
+        make.top.mas_equalTo(weakSelf.view.mas_top).offset(60*HEIGHT_SCALE);
+        make.left.mas_equalTo(weakSelf.view.mas_left).offset(10*WIDTH_SCALE);
+        make.size.mas_equalTo(CGSizeMake(100*WIDTH_SCALE, 100*WIDTH_SCALE));
+    }];
+    
+    //设置用户头像
+    _headImageV = [[UIImageView alloc] init];
+    _headImageV.layer.masksToBounds = YES;
+    _headImageV.layer.cornerRadius = 90*WIDTH_SCALE/2;
+    _headImageV.image = [UIImage imageNamed:@"men-image"];
+    [self.view addSubview:_headImageV];
+    [_headImageV mas_makeConstraints:^(MASConstraintMaker *make) {
+       
+        make.size.mas_equalTo(CGSizeMake(90*WIDTH_SCALE, 90*WIDTH_SCALE));
+        make.centerX.mas_equalTo(headBackImageV.mas_centerX);
+        make.centerY.mas_equalTo(headBackImageV.mas_centerY);
+    }];
+
+    //设置班级名字label
+    _classMessageL = [[UILabel alloc] init];
+    _classMessageL.font = [UIFont systemFontOfSize:15*WIDTH_SCALE];
+    _classMessageL.textColor = [UIColor whiteColor];
+    _classMessageL.text = @"班级--";
+    [self.view addSubview:_classMessageL];
+    [_classMessageL mas_makeConstraints:^(MASConstraintMaker *make) {
+       
+        make.top.mas_equalTo(weakSelf.view.mas_top).offset(70*HEIGHT_SCALE);
+        make.left.mas_equalTo(_headImageV.mas_right).offset(20*WIDTH_SCALE);
+        make.size.mas_equalTo(CGSizeMake(150*WIDTH_SCALE, 25*HEIGHT_SCALE));
+    }];
+    
+    //设置名字tip
+    UIImageView *nameTip = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"my-person-tip"]];
+    [self.view addSubview:nameTip];
+    [nameTip mas_makeConstraints:^(MASConstraintMaker *make) {
+       
+        make.top.mas_equalTo(_classMessageL.mas_bottom).offset(8*HEIGHT_SCALE);
+        make.left.mas_equalTo(_headImageV.mas_right).offset(20*WIDTH_SCALE);
+        make.size.mas_equalTo(CGSizeMake(13, 13));
+    }];
+    
+    //设置名字label
+    _nameL = [[UILabel alloc] init];
+    _nameL.font = [UIFont systemFontOfSize:14*WIDTH_SCALE];
+    _nameL.textColor = [UIColor whiteColor];
+    _nameL.text = @"-- |";
+    [self.view addSubview:_nameL];
+    [_nameL mas_makeConstraints:^(MASConstraintMaker *make) {
+       
+        make.centerY.mas_equalTo(nameTip.mas_centerY);
+        make.left.mas_equalTo(nameTip.mas_right).offset(2*WIDTH_SCALE);
+        make.size.mas_equalTo(CGSizeMake(85*WIDTH_SCALE, 20));
+    }];
+    
+    //设置地址tip
+    UIImageView *addressTip = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"my-address"]];
+    [self.view addSubview:addressTip];
+    [addressTip mas_makeConstraints:^(MASConstraintMaker *make) {
+       
+        make.centerY.mas_equalTo(_nameL.mas_centerY);
+        make.left.mas_equalTo(_nameL.mas_right).offset(5*WIDTH_SCALE);
+        make.size.mas_equalTo(CGSizeMake(13, 13));
+    }];
+    
+    //设置地址label
+    _addressL = [[UILabel alloc] init];
+    _addressL.font = [UIFont systemFontOfSize:14*WIDTH_SCALE];
+    _addressL.textColor = [UIColor whiteColor];
+    _addressL.text = @"未设置";
+    [self.view addSubview:_addressL];
+    [_addressL mas_makeConstraints:^(MASConstraintMaker *make) {
+        
+        make.centerY.mas_equalTo(addressTip.mas_centerY);
+        make.left.mas_equalTo(addressTip.mas_right).offset(2*WIDTH_SCALE);
+        make.size.mas_equalTo(CGSizeMake(70*WIDTH_SCALE, 40*HEIGHT_SCALE));
+    }];
+    
+    //设置描述Label
+    _wordL = [[UILabel alloc] init];
+    _wordL.font = [UIFont systemFontOfSize:14*WIDTH_SCALE];
+    _wordL.textColor = [UIColor whiteColor];
+    _wordL.text = @"这个人很懒,暂时什么也没有留下!";
+    _wordL.numberOfLines = 0;
+    [self.view addSubview:_wordL];
+    [_wordL mas_makeConstraints:^(MASConstraintMaker *make) {
+        
+        make.top.mas_equalTo(_classMessageL.mas_bottom).offset(10*HEIGHT_SCALE);
+        make.left.mas_equalTo(_headImageV.mas_right).offset(20*WIDTH_SCALE);
+        make.right.mas_equalTo(weakSelf.view.mas_right).offset(-40*WIDTH_SCALE);
+        make.bottom.mas_equalTo(backImageV.mas_bottom);
+    }];
+    
+    //如果是访客模式的话 添加左上角返回按钮
+    if (self.visitor) {
+    
+        //设置导航栏返回按钮
+        UIButton *button = [[UIButton alloc]init];
+        [button setImage:[UIImage imageNamed:@"job-detail-back"] forState:UIControlStateNormal];
+        button.frame = CGRectMake(10,22, 40*HEIGHT_SCALE, 40*HEIGHT_SCALE) ;
+        [button addTarget:self action:@selector(back) forControlEvents:UIControlEventTouchUpInside];
+        [self.view addSubview:button];
+    }
+    
+    if (!self.visitor) {
+    //设置右上角的 设置  按钮
+    UIButton *setBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+    [setBtn setImage:[UIImage imageNamed:@"my-setting"] forState:UIControlStateNormal];
+    [setBtn addTarget:self action:@selector(clickSetBtn) forControlEvents:UIControlEventTouchUpInside];
+    setBtn.frame = CGRectMake(kWindowWidth - 60*WIDTH_SCALE, 30, 60*WIDTH_SCALE,50*WIDTH_SCALE);
+    
+    [self.view addSubview:setBtn];
+    }
+    
+#pragma mark test
+    
+    //如果不是访客模式的话,则创建右边的指示按钮
+    
+        UIButton *rightMessageBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+        rightMessageBtn.enabled = NO;
+        [rightMessageBtn setImage:[UIImage imageNamed:@"my-right-tip"] forState:UIControlStateNormal];
+        [self.view addSubview:rightMessageBtn];
+        
+        [rightMessageBtn mas_makeConstraints:^(MASConstraintMaker *make) {
+            
+            make.right.mas_equalTo(weakSelf.view.mas_right).offset(0);
+            make.size.mas_equalTo (CGSizeMake(70*WIDTH_SCALE,60*WIDTH_SCALE));
+            make.centerY.mas_equalTo(addressTip.mas_bottom);
+        }];
+    
+    //循环添加下方的点击按钮
+    NSArray *btnTitles = @[@"我的职业",@"我的日报",@"我的班级",@"我的收藏",@"我的通知",@"查看更多"];
+    NSArray *btnImages = @[@"my-job",@"my-daily",@"my-class",@"my-collect",@"my-message",@"my-more"];
+    
+    //如果是访客模式  特殊处理
+    if (self.visitor) {
+        
+        btnTitles = @[@"TA的日报",@"TA的收藏",@"TA的班级"];
+        btnImages =  @[@"my-job",@"my-collect",@"my-class"];
+    }
+    
+    CGFloat horionalSpace = 10*WIDTH_SCALE;
+    CGFloat verticalSpace = 10*WIDTH_SCALE;
+    CGFloat btnWidth = (kWindowWidth - 4 * horionalSpace)/3;
+    CGFloat btnHeight = 100*HEIGHT_SCALE;
+    
+    for (int i =0; i < btnTitles.count; i ++) {
+        
+        UIImageView *btnImage = [[UIImageView alloc] initWithFrame:CGRectMake(horionalSpace + (horionalSpace + btnWidth)*(i%3), verticalSpace + (verticalSpace + btnHeight)*(int)(i/3) + 200*HEIGHT_SCALE , btnWidth, btnHeight) localImage:btnImages[i] imageFrame:CGRectMake(btnWidth/3, 20*HEIGHT_SCALE, btnWidth/3, btnWidth/3) contendMode:PTT_ImageView_Image_Contend_Mode_Fill title:btnTitles[i] fontSize:13*WIDTH_SCALE titleColor:color_0f4068 distantWithImageAndTitle:3 withAction:^(id sender) {
+            
+            if (self.visitor && i == 0) {
+                
+                [weakSelf clickBtnAtIndex:2];
+            }else if (self.visitor && i == 1) {
+                
+                [weakSelf clickBtnAtIndex:4];
+            }else if(self.visitor && i == 2){
+                
+                [weakSelf clickBtnAtIndex:3];
+            }else{
+                
+                [weakSelf clickBtnAtIndex:i + 1];
+            }
+        }];
+        
+        if(i == 4){
+            
+            //当添加第4个按钮的时候,加上右上角的消息提示Label
+            self.unreadL.frame = CGRectMake(btnWidth/3 + btnWidth/3 - 15*WIDTH_SCALE, 20*HEIGHT_SCALE - 10*HEIGHT_SCALE, 23*HEIGHT_SCALE, 23*HEIGHT_SCALE);
+            self.unreadL.layer.masksToBounds = YES;
+            self.unreadL.layer.cornerRadius = 23*HEIGHT_SCALE/2;
+            [btnImage addSubview:self.unreadL];
+        }
+        
+        [self.view addSubview:btnImage];
+    }
+}
+
+#pragma mark 添加环信监听
+-(void)addMonitorHuanXinMessage{
+    
+    //实时监听推送消息
+    [[EMClient sharedClient].chatManager addDelegate:self delegateQueue:nil];
+}
+
+//收到通知时刷新通知角标
+- (void)messagesDidReceive:(NSArray *)aMessages{
+
+    [self loadUnreadMessageData];
+}
+
+#pragma mark 加载网络数据
+
+//获取本人用户信息 刷新页面 更新currentModel
+-(void)updataMyInfo{
+    
+    UserModel *model = [UserTool userModel];
+    currentModel = model;
+    [self updateUIInfo:model];
+}
+
+//获取他人信息model,并刷新页面,更新currentModel
+-(void)updataVisiterInfo{
+    
+    WK(weakSelf);
+    [UserTool getInfoWithUid:self.visitorId action:^(UserModel *model) {
+       
+        currentModel = model;
+        [weakSelf updateUIInfo:model];
+    }];
+}
+
+//循环调用获取未读消息数字
+-(void)loadUnreadMessageData{
+    _page = 1;
+    unreadMessageNum = 0;
+    self.unreadL.text = @"0";
+    [self loadUnreadMessageNumberWithPage:_page];
+}
+
+//获取未读消息数字
+-(void)loadUnreadMessageNumberWithPage:(NSInteger)page{
+    
+    KCheckNetWorkAndRetuen(^(){
+    })
+    
+    WK(weakSelf);
+    NSDictionary *paramentsDic = [NSDictionary dictionaryWithObjectsAndKeys:[NSString stringWithFormat:@"%lu",page],@"page",@"10",@"size",@"1",@"status",[UserTool userModel].token,@"token", nil];
+    [HttpService sendGetHttpRequestWithUrl:API_Message paraments:paramentsDic successBlock:^(NSDictionary *jsonDic) {
+        
+        if (jsonDic && [jsonDic isKindOfClass:[NSArray class]]&&jsonDic.count != 0 ) {
+            
+            NSArray *array = (NSArray*)jsonDic;
+            [array enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+                
+                if (obj && [obj isKindOfClass:[NSDictionary class]]) {
+                    
+                    if ([[obj objectForKey:@"unread"] integerValue] == 1) {
+                        unreadMessageNum ++;
+                    }
+                }
+            }];
+            
+            dispatch_async(dispatch_get_main_queue(), ^{
+               
+                //如果当前没有未读消息  则隐藏消息提示角标
+                if (unreadMessageNum == 0) {
+                    
+                    weakSelf.unreadL.hidden = YES;
+                }else{
+                    
+                    weakSelf.unreadL.hidden = NO;
+                }
+                weakSelf.unreadL.text = [NSString stringWithFormat:@"%lu",unreadMessageNum];
+                UIApplication *application = [UIApplication sharedApplication]; [application setApplicationIconBadgeNumber:unreadMessageNum];
+
+            });
+            
+            if (array.count > 0) {
+                
+                _page ++;
+                [weakSelf loadUnreadMessageNumberWithPage:_page];
+            }
+        }
+    }];
+}
+
+#pragma mark 更新界面
+-(void)updateUIInfo:(UserModel*)model{
+    
+    if (model) {
+        
+        //更新上方用户信息
+        [_headImageV sd_setImageWithURL:[NSURL URLWithString:model.thumb] placeholderImage:[UIImage imageNamed:@"men-image"]];
+        NSString *typeName = nil;
+        if ([model.type isEqualToString:@"online"] || [model.type isEqualToString:@"outside"]) {
+            typeName = @"线上";
+        }else if ([model.type isEqualToString:@"offline"]) {
+            typeName = @"线下";
+        }else{
+            
+            typeName = @"无班级";
+        }
+        
+        NSString *jobName = model.jobName;
+        if (jobName.length == 0) {
+            jobName = @"-";
+        }
+        
+        if ([typeName isEqualToString:@"无班级"]) {
+            
+            _classMessageL.text = @"未加入班级";
+        }else{
+            
+            _classMessageL.text = [NSString stringWithFormat:@"%@%@-%lu",typeName,jobName,model.name];
+        }
+        
+        NSString *word = model.sign;
+        if (word.length == 0) {
+            word = @"这家伙很懒,什么也没有留下!";
+        }
+        
+        _nameL.text = model.nick;
+        _wordL.text = word;
+        
+        //获取用户地址
+        NSString *address = [PTTPickView pttCityOfProvinceId:model.province andCityId:model.city];
+        if (!address) {
+            
+            address = @"未设置";
+        }
+        _addressL.text = address;
+        
+    }else{
+        
+        [ShowMessageTipUtil showTipLabelWithMessage:@"获取用户信息失败"];
+    }
+}
+
+#pragma mark 按钮点击触发事件
+
+//返回上个页面
+-(void)back{
+    
+    [self.navigationController popViewControllerAnimated:YES];
+}
+
+//点击设置按钮
+-(void)clickSetBtn{
+    
+    SetViewController *setVC = [[SetViewController alloc] init];
+    [self.navigationController pushViewController:setVC animated:YES];
+}
+
+- (void)didReceiveMemoryWarning {
+    [super didReceiveMemoryWarning];
+    // Dispose of any resources that can be recreated.
+}
+
+//点击下方按钮触发方法
+-(void)clickBtnAtIndex:(NSInteger)index{
+    
+    if (!currentModel) {
+        
+        return;
+    }
+    
+    self.navigationController.navigationBar.translucent = NO;
+    WK(weakSelf);
+    switch (index) {
+        case 1:
+        {
+            self.navigationController.navigationBar.translucent = YES;
+            //我的职业
+            if(currentModel.oid < 0){
+                
+                //提示用户去报名
+                [PTTShowAlertView showAlertViewWithTitle:@"提示" message:@"去选择职业报名？" cancleBtnTitle:@"取消" cancelAction:nil sureBtnTitle:@"确定" sureAction:^{
+                    
+                    JobsListController *joblistController = [[JobsListController alloc] init];
+                    [self.navigationController pushViewController:joblistController animated:YES];
+                }];
+            }else{
+                
+                JobDetailController *jobDetailVC = [[JobDetailController alloc] init];
+                jobDetailVC.jobId = currentModel.oid;
+                [weakSelf.navigationController pushViewController:jobDetailVC animated:YES];
+            }
+        }
+            break;
+        
+            case 2:
+        {
+            //我的日报
+            if(currentModel.oid < 0){
+                
+                //提示用户去报名
+                [PTTShowAlertView showAlertViewWithTitle:@"提示" message:@"去选择职业报名？" cancleBtnTitle:@"取消" cancelAction:nil sureBtnTitle:@"确定" sureAction:^{
+                    
+                    JobsListController *joblistController = [[JobsListController alloc] init];
+                    [self.navigationController pushViewController:joblistController animated:YES];
+                }];
+            }else{
+                
+                JobDailyController *jobDailyControl = [[JobDailyController alloc] init];
+                jobDailyControl.uid = currentModel.uid;
+                jobDailyControl.visitor = self.visitor;
+                [self.navigationController pushViewController:jobDailyControl animated:YES];
+            }
+        }
+            break;
+        
+        case 3:
+        {
+            //我的班级
+            if(currentModel.cid > 0){
+                
+                MyClassController *myClassVC = [[MyClassController alloc] init];
+                myClassVC.visitor = self.visitor;
+                myClassVC.visitorId = currentModel.uid;
+                [self.navigationController pushViewController:myClassVC animated:YES];
+            }else{
+                
+                if (self.visitor) {
+                    
+                    [ShowMessageTipUtil showTipLabelWithMessage:@"该学员暂未加入班级" spacingWithTop:kWindowHeight/2 stayTime:2];
+                }else{
+                    
+                    //提示用户去报名
+                    [PTTShowAlertView showAlertViewWithTitle:@"提示" message:@"去选择职业报名？" cancleBtnTitle:@"取消" cancelAction:nil sureBtnTitle:@"确定" sureAction:^{
+                        
+                        JobsListController *joblistController = [[JobsListController alloc] init];
+                        [self.navigationController pushViewController:joblistController animated:YES];
+                    }];
+                }
+            }
+        }
+            break;
+            
+        case 4:
+        {
+            //我的收藏
+            ResourceController *resourceVC = [[ResourceController alloc] init];
+            resourceVC.uid = currentModel.uid;
+            resourceVC.visitor = self.visitor;
+            if (self.visitorId > 0) {
+                resourceVC.uid = (int32_t)self.visitorId;
+            }
+            [self.navigationController pushViewController:resourceVC animated:YES];
+        }
+            break;
+        
+        case 5:
+        {
+            //我的通知
+            MessageController *messageVC = [[MessageController alloc] init];
+            [self.navigationController pushViewController:messageVC animated:YES];
+        }
+            break;
+        
+        case 6:
+        {
+            //查看更多
+            MoreController *moreController = [[MoreController alloc] init];
+            [self.navigationController pushViewController:moreController animated:YES];
+        }
+        default:
+            break;
+    }
+}
+
+#pragma mark 懒加载
+
+-(UILabel *)unreadL{
+    if (!_unreadL) {
+        _unreadL = [[UILabel alloc] init];
+        _unreadL.backgroundColor = color_f2576a;
+        _unreadL.textColor = [UIColor whiteColor];
+        _unreadL.text = @"0";
+        _unreadL.font = [UIFont systemFontOfSize:14*WIDTH_SCALE];
+        _unreadL.textAlignment = NSTextAlignmentCenter;
+        _unreadL.hidden = YES;
+    }
+    return _unreadL;
+}
+
+/*
+#pragma mark - Navigation
+
+// In a storyboard-based application, you will often want to do a little preparation before navigation
+- (void)prepareForSegue:(UIStoryboardSegue *)segue sender:(id)sender {
+    // Get the new view controller using [segue destinationViewController].
+    // Pass the selected object to the new view controller.
+}
+*/
+
+@end
